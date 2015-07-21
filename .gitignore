@@ -1,0 +1,26 @@
+.project
+.pydevproject
+*.pyc
+*~
+*.bak
+## Added for PyCharm
+.idea/
+outfile*
+*.iml
+ret/*
+*.table
+storage*
+*.db
+*.config
+data/
+libs/
+*.iml
+src/out*
+progress.log
+cache/*
+databases/*
+errors/*
+sessions/*
+*.pyc
+*.bak
+*credentials*

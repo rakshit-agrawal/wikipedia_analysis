@@ -359,6 +359,11 @@ def complete():
         last_annotated = vars['last_annotated']
         pageid = vars['pageid']
 
+        # Validate submission by checking worker ID
+        entry = db(db.analysis.id == entry_id).select().first()
+        if entry.worker_id != vars['worker_id']:
+            raise HTTP(403, "Validation failed")
+
         # Get page info for the page ID containing latest revision
         WIKI_PARAMS['page_info']["pageids"] = pageid
         result = WikiFetch._get(url=WIKI_BASE_URL, values=WIKI_PARAMS['page_info'])
@@ -366,15 +371,20 @@ def complete():
         if result['query'] != 'Error':
             last_known_rev = result["query"]["pages"][pageid]["lastrevid"]
 
-        if last_annotated == last_known_rev:
-            # Close the analysis. Remove entry from DB
-            query = (db.analysis.id == entry_id)
-            db(query).update(worker_id=None, work_start_date=None, last_annotated=last_annotated, status="inactive")
-        else:
-            # Reopen the analysis. Set worker ID and start date to None
-            query = (db.analysis.id == entry_id)
-            db(query).update(worker_id=None, work_start_date=None, last_annotated=last_annotated, status="active")
+            if last_annotated == last_known_rev:
+                # Close the analysis. Remove entry from DB
+                query = (db.analysis.id == entry_id)
+                db(query).update(worker_id=None,
+                                 work_start_date=None,
+                                 last_annotated=last_annotated,
+                                 status="inactive")
+            else:
+                # Reopen the analysis. Set worker ID and start date to None
+                query = (db.analysis.id == entry_id)
+                db(query).update(worker_id=None,
+                                 work_start_date=None,
+                                 last_annotated=last_annotated,
+                                 status="active")
 
-            # Update analysis entry with last_annotated
 
     return locals()

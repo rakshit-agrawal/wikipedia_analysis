@@ -6,6 +6,7 @@ db.define_table('wikipages',
                 Field('title'),  # Page title from Wikipedia
                 Field('lang'),  # Page language from Wikipedia
                 Field('last_known_rev'),  # Last known revision of the page to the system
+                format = "%(pageid)s"
                 )
 
 # Table for different analysis

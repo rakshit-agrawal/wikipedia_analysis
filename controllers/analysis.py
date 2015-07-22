@@ -25,32 +25,53 @@ def _get_page_priority(pageid):
 
 def _analysis_lock_status(pageid, analysis_type):
     """
-    Check lock status of a page and analysis.
-    Page is locked if it has a worker ID assigned to it.
+    This is a utility function called by other DB manipulation functions.
+    For an entry in analysis table, it checks the presence and lock status of that entry
 
-    :param pageid:
-    :param analysis_type:
+    It first queries the analysis table with given pageID and analysis type.
+    Using these two it retrieves lock status of entry.
+
+    :param pageid: Page ID of the page under concern
+    :param analysis_type: Analysis type ID of concerned analysis
     :return:
     """
+
+    # Query the database for page ID and analysis type
     query = (db.analysis.analysis_type == analysis_type) & (db.analysis.pageid == pageid)
-    analysis = db(query).select(db.analysis.ALL).first()
+    analysis = db(query).select(db.analysis.ALL)
+
+    ret_dict = {}  # Initialize return dictionary
+
+    # Check if it is not none to check presence of an entry
     if analysis is not None:
-        analysis = analysis.as_dict()
+        if len(analysis)>1:
+            # If more than one entry found, return an error specifying a conflict in database entries
+            ret_dict['status'] = "ERROR"
+            ret_dict['value'] = "More than one entry exists"
+        else:
+            # Otherwise extract the entry and convert to dict
+            analysis = analysis.first().as_dict()
+
+            # Get worker ID
+            worker_id = analysis['worker_id']
+
+            if worker_id is None:
+                # If worker_id is None then the analysis is free and available for update
+                ret_dict['status'] = "OPEN"
+                ret_dict['value'] = "Page-Analysis pair is open for creation/assignment"
+                pass
+            else:
+                # Else the page is locked and can't be altered
+                ret_dict['status'] = "LOCKED"
+                ret_dict['value'] = "Page-Analysis pair is locked an cannot be altered"
+                pass
+
     else:
-        analysis = dict(worker_id="DOES_NOT_EXIST")
+        # No entry exists. Therefore, no lock exists. New entry can be created.
+        ret_dict['status'] = "NEW"
+        ret_dict['value'] = "Page-Analysis pair doesn't exist. Needs to be created before assignment"
 
-    worker_id = analysis['worker_id']
-
-    if worker_id is None:
-        # Case for assign
-        ret_val = False  # Unlocked
-    elif worker_id == "DOES_NOT_EXIST":
-        # Case for open
-        ret_val = False  # Unlocked because entry doesn't exist
-    else:
-        ret_val = True # Locked
-
-    return ret_val
+    return ret_dict
 
 
 def _get_analysis_dict(analysis_type):
@@ -141,25 +162,41 @@ def create_analysis(pageid=None, analysis_type=DEFAULT_ANALYSIS):
       then decline creation of a new analysis.
     - If there is an entry, and it isn't locked, then make it active
 
-    :param pageid: PageID of the page with change
+    :param pageid: Wikipedia Page ID of the page with change
     :param analysis_type: Analysis type used to create an analysis need. Defaults to global Default
-    :return: Analysis ID of new entry, an error if locked
+    :return: dict holding status and value. If successful, value is DB entry ID for analysis
     """
 
-    if not _analysis_lock_status(pageid = pageid, analysis_type=analysis_type):
+    ret_dict = {}  # Initialize return dictionary
+
+    lock_status = _analysis_lock_status(pageid=pageid, analysis_type=analysis_type)
+
+    if lock_status['status'] in ["NEW","OPEN"]:
+        # If it's a new or open analysis, then make it active
         # Create an entry in Analysis table
         query = (db.analysis.pageid==pageid) & (db.analysis.analysis_type==analysis_type)
-        analysis_id = db.analysis.update_or_insert(query,
-                                                   analysis_type=analysis_type,
-                                                   pageid=pageid,
-                                                   worker_id=None,
-                                                   work_start_date=None,
-                                                   status="active",
-                                                   priority = _get_page_priority(pageid=pageid))
-    else:
-        analysis_id = None
+        try:
+            analysis_id = db.analysis.update_or_insert(query,
+                                                       analysis_type=analysis_type,
+                                                       pageid=pageid,
+                                                       worker_id=None,
+                                                       work_start_date=None,
+                                                       status="active",
+                                                       priority = _get_page_priority(pageid=pageid)  # Priority of page
+                                                       )
+            # If an entry has been created or updated, return success with DB entry ID
+            ret_dict['status'] = "SUCCESS"
+            ret_dict['value'] = analysis_id
 
-    return analysis_id
+        except Exception as e:
+            ret_dict['status'] = "ERROR"
+            ret_dict['value'] = e
+    else:
+        # Analysis entry cannot be created.
+        ret_dict = lock_status
+
+    # Return the dict holding status and value
+    return ret_dict
 
 
 def generate():
@@ -181,27 +218,39 @@ def generate():
     """
     w = WikiFetch()  # Create a WikiFetch object for calling Wikipedia APIs
 
+    generated_entries = set()  # Initializing set of analysis entries generated in one call
+
     # Get pages with changes
     # Comes in as a dict of pages with recent changes
     pages_with_changes = w.get_recent_changes()
 
-    # Set the pages open for each analysis
+    # Set these pages open for each analysis
     # Create or update analysis entry in table for analysis
-
     # Iterating over all new pages with changes
     for k,v in pages_with_changes.iteritems():
+        # Extract page ID, title and latest revision from Wikipedia.
+        # Language not available in this call
         pageid = k
         title = v['title']
         last_known_rev = v['last_known_rev']
 
         # Update page table with this page's entry.
-        # TODO: Add entry in page table
+        query = (db.wikipages.pageid==pageid)
+        page_id = db.wikipages.update_or_insert(query,
+                                                pageid = pageid,
+                                                last_known_rev = last_known_rev,
+                                                title = title)
 
         # For each available analysis, make an analysis requirement
         for analysis in ANALYSIS_LIST:
             # Call the create analysis function for writing entry in the DB.
-            analysis_id = create_analysis(pageid=pageid,analysis_type=analysis)
-
+            analysis_entry = create_analysis(pageid=pageid,analysis_type=analysis)
+            if analysis_entry['status']=="SUCCESS":
+                # If an entry has been created, add it to the set of generated entries
+                generated_entries.add(analysis_entry['value'])
+            else:
+                # TODO: Based on response, log the error or success of entries.
+                pass
 
     return locals()
 

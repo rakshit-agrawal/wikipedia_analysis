@@ -1,6 +1,22 @@
-import os
-import pickle
-import uuid
+#!/usr/bin/env python
+
+"""
+This file defines the code for server functions taking
+care of the analysis generation, assignment and completion process
+
+For web2py, it defines the Analysis controller
+
+This controller takes care of the following functions:
+- Generating analysis needs for pages with recent changes
+- Assigning analyses to users upon request
+- Closing analyses when completed or when time limit elapsed
+- Updating last_annotated revisions of every analysis
+
+
+Rakshit Agrawal, 2015
+"""
+
+
 from wikipedia import WikiFetch, WIKI_PARAMS, WIKI_BASE_URL
 from datetime import datetime
 import random

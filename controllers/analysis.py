@@ -28,30 +28,6 @@ def _get_analysis_type_from_db():
     return ret_dict
 
 
-def _get_file(pickle_name):
-    """
-    Get a pickle file for given pickle name.
-    Dict of file is returned if already present.
-    If not present, generator function is called to create a new dict,
-    which is then stored into pickle and is returned
-
-    :param pickle_name:
-    :return:
-    """
-
-    ret_dict = {}  # Initialize an empty dict
-
-    full_pickle_name = pickle_name
-    if os.path.isfile(full_pickle_name):
-        ret_dict = pickle.load(open(full_pickle_name, "rb"))
-        return ret_dict
-    else:
-        if pickle_name == "analysis_type.p":
-            ret_dict = _get_analysis_type_from_db()
-        pickle.dump(ret_dict, open(full_pickle_name, "wb"))
-        return ret_dict
-
-
 def _generate_worker_id():
     """
     Generate a random worker ID.
@@ -62,7 +38,15 @@ def _generate_worker_id():
     return str(val)
 
 
-def _get_page_priority(pageid):
+def _get_page_priority(pageid=None):
+    """
+    Generate priority value for a given Page ID.
+    At present only returns value of 1.
+
+    :param pageid: pageID of a wikipedia page
+    :rtype: double
+    :return: priority value
+    """
     return 1
 
 
@@ -88,7 +72,7 @@ def _analysis_lock_status(pageid, analysis_type):
 
     # Check if it is not none to check presence of an entry
     if first_analysis is not None:
-        if len(analysis)>1:
+        if len(analysis) > 1:
             # If more than one entry found, return an error specifying a conflict in database entries
             ret_dict['status'] = "ERROR"
             ret_dict['value'] = "More than one entry exists"
@@ -118,22 +102,6 @@ def _analysis_lock_status(pageid, analysis_type):
     return ret_dict
 
 
-def _get_analysis_dict(analysis_type):
-    """
-    Create a dict for analysis type and its
-    associated data
-
-    :param analysis_type:
-    :return:
-    """
-    analysis_dict = dict()
-
-    analysis_dict['type'] = analysis_type
-    analysis_dict['coefficients'] = {}
-
-    return analysis_dict
-
-
 def _create_analysis_response(analysis_dict=None, worker_id=None, work_start_date=None):
     """
     This utility function is called from assign controller.
@@ -150,39 +118,33 @@ def _create_analysis_response(analysis_dict=None, worker_id=None, work_start_dat
     :return: Dict with organized information
     """
 
-    base_dict = dict()  # Initialize an empty dict
-    dict_page = base_dict['page'] = dict()  # Initialize a nested dict for page
+    base_dict = analysis_dict
 
     # Get page information from DB
     page = db(db.wikipages.pageid == analysis_dict['pageid']).select(db.wikipages.ALL).first()
     page = page.as_dict()
+    base_dict.pop('pageid')
 
     # Build the page dict
-    dict_page['pageid'] = analysis_dict['pageid']
-    dict_page['title'] = page['title']
-    dict_page['language'] = page['lang'] if not None else ""
-    dict_page['base_revision'] = analysis_dict['last_annotated']
+    page.pop('id')
+    page.pop('last_known_rev')
+
+    page['base_revision'] = analysis_dict['last_annotated']
+    base_dict['page'] = page
 
     # Get analysis_type information from DB
     analysis_type = db(db.analysis_type.id == analysis_dict['analysis_type']).select(db.analysis_type.ALL).first()
     analysis_type = analysis_type.as_dict()
+    base_dict.pop('analysis_type')
 
     # Build the analysis_type dict
+    analysis_type.pop('id')  # Removing DB id from entry
     base_dict['analysis'] = analysis_type
 
     # Build the remaining main_dict elements
     base_dict['priority'] = analysis_dict['priority']
     base_dict['worker_id'] = worker_id
     base_dict['work_start_date'] = work_start_date
-
-    return base_dict
-
-def _generate_error_response(error=100):
-    base_dict = dict()
-
-    base_dict['status'] = "Error"
-    base_dict['code'] = error
-    #base_dict["error"] = ERROR_CODES[error]
 
     return base_dict
 
@@ -228,10 +190,10 @@ def create_analysis(pageid=None, analysis_type=None):
 
     lock_status = _analysis_lock_status(pageid=pageid, analysis_type=analysis_type)
 
-    if lock_status['status'] in ["NEW","OPEN"]:
+    if lock_status['status'] in ["NEW", "OPEN"]:
         # If it's a new or open analysis, then make it active
         # Create an entry in Analysis table
-        query = (db.analysis.pageid==pageid) & (db.analysis.analysis_type==analysis_type)
+        query = (db.analysis.pageid == pageid) & (db.analysis.analysis_type == analysis_type)
         try:
             analysis_id = db.analysis.update_or_insert(query,
                                                        analysis_type=analysis_type,
@@ -239,7 +201,7 @@ def create_analysis(pageid=None, analysis_type=None):
                                                        worker_id=None,
                                                        work_start_date=None,
                                                        status="active",
-                                                       priority = _get_page_priority(pageid=pageid)  # Priority of page
+                                                       priority=_get_page_priority(pageid=pageid)  # Priority of page
                                                        )
             # If an entry has been created or updated, return success with DB entry ID
             ret_dict['status'] = "SUCCESS"
@@ -283,7 +245,7 @@ def generate():
     # Set these pages open for each analysis
     # Create or update analysis entry in table for analysis
     # Iterating over all new pages with changes
-    for k,v in pages_with_changes.iteritems():
+    for k, v in pages_with_changes.iteritems():
         # Extract page ID, title and latest revision from Wikipedia.
         # Language not available in this call
         pageid = k
@@ -291,11 +253,11 @@ def generate():
         last_known_rev = v['last_known_rev']
 
         # Update page table with this page's entry.
-        query = (db.wikipages.pageid==pageid)
+        query = (db.wikipages.pageid == pageid)
         page_id = db.wikipages.update_or_insert(query,
-                                                pageid = pageid,
-                                                last_known_rev = last_known_rev,
-                                                title = title)
+                                                pageid=pageid,
+                                                last_known_rev=last_known_rev,
+                                                title=title)
 
         # Get available analysis_types
         analysis_types = _get_analysis_type_from_db()
@@ -304,9 +266,9 @@ def generate():
         for analysis in analysis_types.keys():
 
             # Call the create analysis function for writing entry in the DB.
-            analysis_entry = create_analysis(pageid=pageid,analysis_type=analysis)
+            analysis_entry = create_analysis(pageid=pageid, analysis_type=analysis)
 
-            if analysis_entry['status']=="SUCCESS":
+            if analysis_entry['status'] == "SUCCESS":
                 # If an entry has been created, add it to the set of generated entries
                 generated_entries.add(analysis_entry['value'])
             else:
@@ -316,6 +278,7 @@ def generate():
     return locals()
 
 
+@request.restful()
 def assign():
     """
     This function is called through a GET request.
@@ -329,63 +292,89 @@ def assign():
 
     :return:
     """
+    response.view = 'generic.'+request.extension
 
-    # Basic authentication check using a secret
-    # TODO: Change to header based authentication
-    secret = request.args(0)
-    if secret != MYSECRET:
-        raise HTTP(400)
+    def GET(*args, **vars):
+        # Basic authentication check using a secret
+        # TODO: Change to header based authentication
+        secret = request.args(0)
+        if secret != MYSECRET:
+            raise HTTP(400)
 
-    # Select an open task for assignment
-    query = (db.analysis.status == "active") & (db.analysis.worker_id == None)
-    open_analysis = db(query).select(db.analysis.ALL).first() # First open analysis
+        # Select an open task for assignment
+        query = (db.analysis.status == "active") & (db.analysis.worker_id == None)
+        open_analysis = db(query).select(db.analysis.ALL).first()  # First open analysis
 
-    # Get an ID to assign the worker
-    worker_id = _generate_worker_id()
+        # Get an ID to assign the worker
+        worker_id = _generate_worker_id()
 
-    # Set assignment date to now
-    work_start_date = datetime.utcnow()
+        # Set assignment date to now
+        work_start_date = datetime.utcnow()
 
-    # Update database entry and generate return dict
-    open_analysis.update_record(worker_id=worker_id,
-                                work_start_date=work_start_date)
-    response_dict = _create_analysis_response(open_analysis.as_dict(),
-                                              worker_id,  # Not updated in open_analysis
-                                              work_start_date  # Not updated in open_analysis
-                                              )
+        # Update database entry and generate return dict
+        open_analysis.update_record(worker_id=worker_id,
+                                    work_start_date=work_start_date)
+        response_dict = _create_analysis_response(open_analysis.as_dict(),
+                                                  worker_id,  # Not updated in open_analysis
+                                                  work_start_date  # Not updated in open_analysis
+                                                  )
 
-    return response_dict
+        return response_dict
+
+    return locals()
 
 
-def close_analysis(analysis_entry=None, comments=None):
+@request.restful()
+def complete():
     """
-    Check for analysis completion level and close it if done.
-    For a given analysis for a page, check worker's last_annotated
-    revision and check its current revision. If both are same,
-    it can be closed. Otherwise keep it open
+    This function is called through a POST request.
 
+    A request to this function contains work performed by a client on
+    an assigned analysis.
+    Client's submission data is inserted into the DB here to update
+    analysis's status.
+
+    Check is performed here with submitted last revision and current revision.
+    With this check the function decides change in status of analysis.
+
+    Input of form:
+    {
+        'analysis_id':"",
+        'pageid':"",
+        'worker_id':"",
+        'last_annotated':"",
+        'start_time':"",
+        'end_time':""
+    }
+    :param analysis_entry:
+    :param comments:
     :return:
     """
-    w = WikiFetch()
+    response.view = 'generic.'+request.extension
 
-    pageid = analysis_entry['pageid']
-    last_annotated = analysis_entry['last_annotated']
-    analysis_type = analysis_entry['analysis_type']
+    def POST(*args, **vars):
 
-    # Get page info for the page ID containing latest revision
-    WIKI_PARAMS['page_info']["pageids"] = pageid
-    result = w._get(url=WIKI_BASE_URL, values=WIKI_PARAMS['page_info'])
+        # Extract DB entry ID and last_annotated from vars
+        entry_id = vars['analysis_id']
+        last_annotated = vars['last_annotated']
+        pageid = vars['pageid']
 
-    if result['query'] != 'Error':
-        last_known_rev = result["query"]["pages"][pageid]["lastrevid"]
+        # Get page info for the page ID containing latest revision
+        WIKI_PARAMS['page_info']["pageids"] = pageid
+        result = WikiFetch._get(url=WIKI_BASE_URL, values=WIKI_PARAMS['page_info'])
 
-    if last_annotated == last_known_rev:
-        # Close the analysis. Remove entry from DB
-        query = (db.analysis.id == analysis_entry['id'])
-        db(query).update(worker_id=None, work_start_date=None, last_annotated=last_annotated, status="inactive")
-    else:
-        # Reopen the analysis. Set worker ID and start date to None
-        query = (db.analysis.id == analysis_entry['id'])
-        db(query).update(worker_id=None, work_start_date=None, last_annotated=last_annotated, status="active")
+        if result['query'] != 'Error':
+            last_known_rev = result["query"]["pages"][pageid]["lastrevid"]
 
-    # Update analysis entry with last_annotated
+        if last_annotated == last_known_rev:
+            # Close the analysis. Remove entry from DB
+            query = (db.analysis.id == entry_id)
+            db(query).update(worker_id=None, work_start_date=None, last_annotated=last_annotated, status="inactive")
+        else:
+            # Reopen the analysis. Set worker ID and start date to None
+            query = (db.analysis.id == entry_id)
+            db(query).update(worker_id=None, work_start_date=None, last_annotated=last_annotated, status="active")
+
+            # Update analysis entry with last_annotated
+
+    return locals()

@@ -1,21 +1,64 @@
 import os
 import pickle
+import uuid
 from wikipedia import WikiFetch, WIKI_PARAMS, WIKI_BASE_URL
 from datetime import datetime
 import random
 
 __author__ = 'rakshit'
 
-ANALYSIS_LIST = ["trust"]
-DEFAULT_ANALYSIS = "trust"
+MYSECRET = "secretcode"
+
+
+def _get_analysis_type_from_db():
+    """
+    This function provides analysis types present in DB table analysis_type.
+    It is used to generate a dict of existing analysis in
+    the system for use by generate function
+
+    :rtype : dict
+    :return: Dict with keys as DB ID and value as analysis_type name
+    """
+    ret_dict = {}  # Initialize an empty dict
+
+    analysis_types = db().select(db.analysis_type.id, db.analysis_type.name)
+    for entry in analysis_types:
+        ret_dict[entry.id] = entry.name
+
+    return ret_dict
+
+
+def _get_file(pickle_name):
+    """
+    Get a pickle file for given pickle name.
+    Dict of file is returned if already present.
+    If not present, generator function is called to create a new dict,
+    which is then stored into pickle and is returned
+
+    :param pickle_name:
+    :return:
+    """
+
+    ret_dict = {}  # Initialize an empty dict
+
+    full_pickle_name = pickle_name
+    if os.path.isfile(full_pickle_name):
+        ret_dict = pickle.load(open(full_pickle_name, "rb"))
+        return ret_dict
+    else:
+        if pickle_name == "analysis_type.p":
+            ret_dict = _get_analysis_type_from_db()
+        pickle.dump(ret_dict, open(full_pickle_name, "wb"))
+        return ret_dict
+
 
 def _generate_worker_id():
     """
-    Generate a random worker ID
-    :return:
+    Generate a random worker ID.
+
+    :return: String version for the 64 bit random value
     """
     val = random.getrandbits(64)
-
     return str(val)
 
 
@@ -39,21 +82,22 @@ def _analysis_lock_status(pageid, analysis_type):
     # Query the database for page ID and analysis type
     query = (db.analysis.analysis_type == analysis_type) & (db.analysis.pageid == pageid)
     analysis = db(query).select(db.analysis.ALL)
+    first_analysis = analysis.first()
 
     ret_dict = {}  # Initialize return dictionary
 
     # Check if it is not none to check presence of an entry
-    if analysis is not None:
+    if first_analysis is not None:
         if len(analysis)>1:
             # If more than one entry found, return an error specifying a conflict in database entries
             ret_dict['status'] = "ERROR"
             ret_dict['value'] = "More than one entry exists"
         else:
             # Otherwise extract the entry and convert to dict
-            analysis = analysis.first().as_dict()
+            first_analysis = first_analysis.as_dict()
 
             # Get worker ID
-            worker_id = analysis['worker_id']
+            worker_id = first_analysis['worker_id']
 
             if worker_id is None:
                 # If worker_id is None then the analysis is free and available for update
@@ -89,34 +133,47 @@ def _get_analysis_dict(analysis_type):
 
     return analysis_dict
 
-def _create_analysis_response(analysis_dict):
+
+def _create_analysis_response(analysis_dict=None, worker_id=None, work_start_date=None):
     """
-    Create a JSON for the analysis data provided
+    This utility function is called from assign controller.
+    When the controller assigns an analysis, it needs an organized
+    dict to return in the resulting json.
+    That dict is built here in this function.
 
-    :param id:
-    :param pageid:
-    :param base_revision:
-    :param target_revision:
-    :param create_date:
-    :param priority:
-    :param status:
-    :param assign_date:
-    :return:
+    It uses page and analysis type information from respective tables.
+    It uses the three arguments provided for information on analysis
+
+    :param analysis_dict: Dict containing DB entry for analysis
+    :param worker_id: Worker ID generated for this assignment
+    :param work_start_date: Time for assignment
+    :return: Dict with organized information
     """
 
-    base_dict = dict()
-    dict_page = base_dict['page'] = dict()
+    base_dict = dict()  # Initialize an empty dict
+    dict_page = base_dict['page'] = dict()  # Initialize a nested dict for page
 
+    # Get page information from DB
+    page = db(db.wikipages.pageid == analysis_dict['pageid']).select(db.wikipages.ALL).first()
+    page = page.as_dict()
+
+    # Build the page dict
     dict_page['pageid'] = analysis_dict['pageid']
+    dict_page['title'] = page['title']
+    dict_page['language'] = page['lang'] if not None else ""
     dict_page['base_revision'] = analysis_dict['last_annotated']
 
+    # Get analysis_type information from DB
+    analysis_type = db(db.analysis_type.id == analysis_dict['analysis_type']).select(db.analysis_type.ALL).first()
+    analysis_type = analysis_type.as_dict()
+
+    # Build the analysis_type dict
+    base_dict['analysis'] = analysis_type
+
+    # Build the remaining main_dict elements
     base_dict['priority'] = analysis_dict['priority']
-    base_dict['worker_id'] = analysis_dict['worker_id']
-
-    base_dict['work_start_date'] = analysis_dict['work_start_date']
-
-    dict_analysis = base_dict['analysis'] = dict()
-    dict_analysis = _get_analysis_dict(analysis_type=analysis_dict['analysis_type'])
+    base_dict['worker_id'] = worker_id
+    base_dict['work_start_date'] = work_start_date
 
     return base_dict
 
@@ -150,7 +207,7 @@ def index():
     return locals()
 
 
-def create_analysis(pageid=None, analysis_type=DEFAULT_ANALYSIS):
+def create_analysis(pageid=None, analysis_type=None):
     """
     Create Analysis is called through the generate function for
     each analysis type per page with change.
@@ -216,13 +273,12 @@ def generate():
 
     :return: A dict holding information of pages with recent changes
     """
-    w = WikiFetch()  # Create a WikiFetch object for calling Wikipedia APIs
 
     generated_entries = set()  # Initializing set of analysis entries generated in one call
 
     # Get pages with changes
     # Comes in as a dict of pages with recent changes
-    pages_with_changes = w.get_recent_changes()
+    pages_with_changes = WikiFetch.get_recent_changes()
 
     # Set these pages open for each analysis
     # Create or update analysis entry in table for analysis
@@ -241,10 +297,15 @@ def generate():
                                                 last_known_rev = last_known_rev,
                                                 title = title)
 
+        # Get available analysis_types
+        analysis_types = _get_analysis_type_from_db()
+        print(analysis_types)
         # For each available analysis, make an analysis requirement
-        for analysis in ANALYSIS_LIST:
+        for analysis in analysis_types.keys():
+
             # Call the create analysis function for writing entry in the DB.
             analysis_entry = create_analysis(pageid=pageid,analysis_type=analysis)
+
             if analysis_entry['status']=="SUCCESS":
                 # If an entry has been created, add it to the set of generated entries
                 generated_entries.add(analysis_entry['value'])
@@ -257,42 +318,41 @@ def generate():
 
 def assign():
     """
-    Assign analysis for a given page to a worker.
-    Fetch all initial elements of an analysis and make its entry
-    in the DB.
+    This function is called through a GET request.
 
-    :param pageid:
-    :param analysis_type:
+    A request to this function assigns an open analysis to requester.
+    Upon assignment, the function updates analysis entry in the table.
+
+    This function then creates a dictionary containing
+    entire analysis job data. A GET request to the function returns
+    this dict which can be fetched as both JSON and XML.
+
     :return:
     """
 
-    if request.args and (len(request.args)>=2):
-        pageid = request.args(0)
-        analysis_type = request.args(1)
-    
-    else:
-        raise HTTP(403, "Arguments not provided")
-        
+    # Basic authentication check using a secret
+    # TODO: Change to header based authentication
+    secret = request.args(0)
+    if secret != MYSECRET:
+        raise HTTP(400)
+
+    # Select an open task for assignment
+    query = (db.analysis.status == "active") & (db.analysis.worker_id == None)
+    open_analysis = db(query).select(db.analysis.ALL).first() # First open analysis
 
     # Get an ID to assign the worker
     worker_id = _generate_worker_id()
+
+    # Set assignment date to now
     work_start_date = datetime.utcnow()
 
-    query = (db.analysis.analysis_type == analysis_type) & (db.analysis.pageid == pageid)
-    analysis = db(query).select(db.analysis.ALL).first()
-
-    if analysis is not None:
-        analysis_dict = analysis.as_dict()
-    else:
-        analysis_dict = dict(worker_id="DOES_NOT_EXIST")
-
-    if analysis_dict['worker_id'] is not None:
-        # Locked
-        response_dict = _generate_error_response(error=101)
-    else:
-        # Update the record with worker assignment
-        analysis.update_record(worker_id=worker_id, work_start_date=work_start_date)
-        response_dict = _create_analysis_response(analysis_dict)
+    # Update database entry and generate return dict
+    open_analysis.update_record(worker_id=worker_id,
+                                work_start_date=work_start_date)
+    response_dict = _create_analysis_response(open_analysis.as_dict(),
+                                              worker_id,  # Not updated in open_analysis
+                                              work_start_date  # Not updated in open_analysis
+                                              )
 
     return response_dict
 

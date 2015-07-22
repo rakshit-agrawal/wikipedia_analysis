@@ -18,6 +18,9 @@ from wikipedia import WikiFetch
 MYSECRET = "behappy"
 
 
+TABLE_NAMES = {
+'analysis_type': db.analysis_type,
+}
 
 def make_key_pair(a, k):
     return json.dumps([a, k])
@@ -51,6 +54,32 @@ def get():
     return result
 
 
+
+
+def add():
+    """Add entries"""
+    form = ''
+    entry_type = request.args(0) if not None else ''
+
+    if request.args(0):
+        try:
+            table_name = TABLE_NAMES[entry_type]
+            print table_name
+        except:
+            table_name = ''
+            session.flash = T("Incorrect argument.")
+            redirect(URL('default', 'index'))
+
+        form = SQLFORM(table_name)
+        if form.process().accepted:
+             # Successful processing.
+            session.flash = T("New Entry inserted")
+            redirect(URL('default', 'index'))
+    else:
+        session.flash = T("No argument provided.")
+        redirect(URL('default', 'index'))
+
+    return locals()
 
 
 

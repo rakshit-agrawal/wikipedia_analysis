@@ -111,7 +111,8 @@ class WikiFetch:
         self.depth = 0
         self.nrev = 0
 
-    def get_recent_changes(self):
+    @staticmethod
+    def get_recent_changes():
         """
             Function to fetch recent changes in Wikipedia pages.
             Calls Wikimedia API to getch revision information with

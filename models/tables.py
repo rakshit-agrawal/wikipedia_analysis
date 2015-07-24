@@ -28,3 +28,9 @@ db.define_table('analysis',
                 Field('priority', 'double'),  # Priority of analysis.
                 Field('status')  # If active, then analysis needs to be done, else no
                 )
+
+# For first run
+
+# Create an entry for trust in analysis_type
+
+db.analysis_type.update_or_insert(name='trust',author='Luca deAlfaro')

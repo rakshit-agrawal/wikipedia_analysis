@@ -15,7 +15,7 @@ This controller takes care of the following functions:
 
 Rakshit Agrawal, 2015
 """
-
+from pprint import pprint
 
 from wikipedia import WikiFetch, WIKI_PARAMS, WIKI_BASE_URL
 from datetime import datetime
@@ -145,7 +145,6 @@ def _create_analysis_response(analysis_dict=None, worker_id=None, work_start_dat
     page.pop('id')
     page.pop('last_known_rev')
 
-    page['base_revision'] = analysis_dict['last_annotated']
     base_dict['page'] = page
 
     # Get analysis_type information from DB
@@ -283,7 +282,7 @@ def generate():
 
             # Call the create analysis function for writing entry in the DB.
             analysis_entry = create_analysis(pageid=pageid, analysis_type=analysis)
-
+            print analysis_entry
             if analysis_entry['status'] == "SUCCESS":
                 # If an entry has been created, add it to the set of generated entries
                 generated_entries.add(analysis_entry['value'])
@@ -297,13 +296,14 @@ def generate():
 @request.restful()
 def assign():
     """
-    This function is called through a GET request.
+    This function hosts a RESTful GET call.
 
     A request to this function assigns an open analysis to requester.
     Upon assignment, the function updates analysis entry in the table.
 
     This function then creates a dictionary containing
-    entire analysis job data. A GET request to the function returns
+    entire analysis job data. A GET request to the function assigns
+    a new analysis to the worker and then returns
     this dict which can be fetched as both JSON and XML.
 
     :return:
@@ -311,15 +311,25 @@ def assign():
     response.view = 'generic.'+request.extension
 
     def GET(*args, **vars):
+
         # Basic authentication check using a secret
         # TODO: Change to header based authentication
-        secret = request.args(0)
-        if secret != MYSECRET:
+        try:
+            secret = vars['secret']
+            if secret != MYSECRET:
+                raise HTTP(400)
+        except KeyError, e:
+            print e
             raise HTTP(400)
 
         # Select an open task for assignment
         query = (db.analysis.status == "active") & (db.analysis.worker_id == None)
         open_analysis = db(query).select(db.analysis.ALL).first()  # First open analysis
+
+        print(open_analysis is None)
+
+        if open_analysis is None:
+            raise HTTP(404)
 
         # Get an ID to assign the worker
         worker_id = _generate_worker_id()

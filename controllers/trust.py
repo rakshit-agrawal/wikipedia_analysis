@@ -23,17 +23,13 @@ def get_meta():
         {
             'query': "meta",
             'analysis_type':"",
-            'params':[
-                        {
-                            'property':"",
-                            'values':""
-                        }
-                    ]
+            'property':"",
+            'values':"a|b|c"
         }
 
         :param args: Arguments submitted with the GET request
         :param vars: Variables sent with the GET request
-        :return: Dictionary with processed propery values
+        :return: Dictionary with processed property values
         :rtype: dict
         """
 

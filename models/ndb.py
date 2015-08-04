@@ -17,9 +17,9 @@ class Analysis(ndb.Model):
 class Revision(ndb.Model):
     name = ndb.StringProperty(indexed=True)  # RevID same as wikipedia
     pageid = ndb.IntegerProperty()  # PageID same as wikipedia
-    userid = ndb.IntegerProperty()  # UserID same as wikipedia
+    userid = ndb.StringProperty()  # UserID same as wikipedia
     username = ndb.StringProperty()  # username from Wikipedia
     revision_date = ndb.DateTimeProperty()  # Time when revision was submitted to Wikipedia
-    annotation_date = ndb.DateTimeProperty()  # Time when annotation was performed (optional)
+    #annotation_date = ndb.DateTimeProperty()  # Time when annotation was performed (optional)
     analysis = ndb.StructuredProperty(Analysis,       # This will allow different kind of analysis
                                       repeated=True)  # to be associated with same revision

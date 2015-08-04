@@ -17,13 +17,16 @@ from wikipedia import WikiFetch
 
 MYSECRET = "behappy"
 
-
 TABLE_NAMES = {
-'analysis_type': db.analysis_type,
+    'analysis_type': db.analysis_type,
+    'pages': db.wikipages,
+    'analysis': db.analysis
 }
+
 
 def make_key_pair(a, k):
     return json.dumps([a, k])
+
 
 def put():
     secret = request.args(0)
@@ -35,7 +38,7 @@ def put():
         raise HTTP(400)
     content = request.vars.c
     itemkey = make_key_pair(appid, key)
-    db.store.update_or_insert(db.store.itemkey==itemkey,
+    db.store.update_or_insert(db.store.itemkey == itemkey,
                               itemkey=itemkey,
                               content=content)
     return dict(result='ok')
@@ -50,10 +53,8 @@ def get():
     if appid is None or key is None:
         raise HTTP(400)
 
-    result = create_task_json(pageid = 1, base_revision=2, priority=1)
+    result = create_task_json(pageid=1, base_revision=2, priority=1)
     return result
-
-
 
 
 def add():
@@ -72,7 +73,7 @@ def add():
 
         form = SQLFORM(table_name)
         if form.process().accepted:
-             # Successful processing.
+            # Successful processing.
             session.flash = T("New Entry inserted")
             redirect(URL('default', 'index'))
     else:
@@ -81,15 +82,35 @@ def add():
 
     return locals()
 
-def initiate():
+@auth.requires_login()
+def view():
+    form = ''
+    entry_type = request.args(0) if not None else ''
 
-    analysis_entry = Revision(id="131231",
-                              pageid = 1213,
-                              )
-    analysis_entry.put()
+    if request.args(0):
+        try:
+            table_name = TABLE_NAMES[entry_type]
+        except:
+            table_name = ''
+            session.flash = T("Incorrect argument.")
+            redirect(URL('default', 'index'))
+
+        form = SQLFORM.grid(table_name)
+        print form
+
+    else:
+        session.flash = T("No argument provided.")
+        redirect(URL('default', 'index'))
+
     return locals()
 
 
+def initiate():
+    analysis_entry = Revision(id="131231",
+                              pageid=1213,
+                              )
+    analysis_entry.put()
+    return locals()
 
 
 ################
@@ -123,6 +144,7 @@ def user():
     to decorate functions that need access control
     """
     return dict(form=auth())
+
 
 @cache.action()
 def download():

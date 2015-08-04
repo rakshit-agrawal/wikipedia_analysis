@@ -15,7 +15,8 @@ class Analysis(ndb.Model):
 
 
 class Revision(ndb.Model):
-    name = ndb.StringProperty(indexed=True)  # RevID same as wikipedia
+    revision_id = ndb.IntegerProperty()
+    name = ndb.StringProperty()  # RevID same as wikipedia
     pageid = ndb.IntegerProperty()  # PageID same as wikipedia
     userid = ndb.StringProperty()  # UserID same as wikipedia
     username = ndb.StringProperty()  # username from Wikipedia
@@ -23,3 +24,14 @@ class Revision(ndb.Model):
     #annotation_date = ndb.DateTimeProperty()  # Time when annotation was performed (optional)
     analysis = ndb.StructuredProperty(Analysis,       # This will allow different kind of analysis
                                       repeated=True)  # to be associated with same revision
+                                      
+class AuthorReputation(ndb.Model):
+    userid = ndb.StringProperty()
+    reputation = ndb.FloatProperty()
+    last_updated = ndb.DateTimeProperty(auto_update_now=True) # check the auto_now vs. auto_update_now? 
+    
+class AuthorshipMedatada(ndb.Model):
+    revision_id = ndb.IntegerProperty()
+    # ... 
+    gcs_key = ndb.StringProperty() # check 
+    

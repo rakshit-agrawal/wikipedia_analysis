@@ -81,6 +81,14 @@ def add():
 
     return locals()
 
+def initiate():
+
+    analysis_entry = Revision(id="131231",
+                              pageid = 1213,
+                              )
+    analysis_entry.put()
+    return locals()
+
 
 
 
@@ -94,6 +102,7 @@ def index():
     if you need a simple wiki simply replace the two lines below with:
     return auth.wiki()
     """
+    initiate()
     response.flash = T("Welcome to web2py!")
     return dict(message=T('Hello World'))
 

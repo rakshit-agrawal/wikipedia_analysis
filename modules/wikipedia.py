@@ -164,10 +164,15 @@ class WikiFetch:
         return new_revisions
 
     def parse_revisions(self, revisions):
-        # Parse through the revisions collected from fetch function.
-        # Check if current latest is in the results.
-        #   If not, then keep making recursive calls to the fetch-parse function sequence
-        # Create a complete list of revisions form all calls before returning it.
+        """
+            Parse through the revisions collected from fetch function.
+            Check if current latest is in the results.
+            If not, then keep making recursive calls to the fetch-parse function sequence
+            Create a complete list of revisions form all calls before returning it.
+
+        :param revisions:
+        :return:
+        """
         parsed_json = revisions
         pages = parsed_json["query"]["pages"]
         revisions = None

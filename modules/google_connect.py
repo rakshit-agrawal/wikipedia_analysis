@@ -28,7 +28,7 @@ class GoogleConnect:
         try:
             gcs_file = gcs.open(filename,
                                 'w',
-                                content_type='text/plain',
+                                content_type='application/json',
                                 options={'x-goog-meta-foo': 'foo',
                                          'x-goog-meta-bar': 'bar'},
                                 retry_params=write_retry_params)

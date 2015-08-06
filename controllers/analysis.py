@@ -174,26 +174,54 @@ def _get_revisions(pageid=None, base_revision=None, chunk_size=20, continuous=Fa
     """
 
     w = WikiFetch()
-    g = GoogleConnect()
     revisions = w.fetch_revisions_for_page(pageid=pageid,
                                            start_rev=base_revision,
                                            chunk_size=chunk_size,
                                            continuous=continuous)
 
+    return revisions
+
+
+def _put_revisions_in_storage(pageid = None, bucket_name = None, revisions = None):
+    """
+
+    :param revisions:
+    :return:
+    """
+    g = GoogleConnect()
+
     for i in revisions:
         revid = i['revid']
 
-        # Put revisions into the bucket
         filename = str(revid) + ".json"
         try:
-            g.write_to_bucket(bucket_name="revision_original",
+            g.write_to_bucket(bucket_name=bucket_name,
                           file_to_write=filename,
                           content = json.dumps(obj=i))
             print ("Written to bucket")
 
+
+
         except Exception, e:
             print "Exception while writing to bucket is: {}".format(e)
+            return e
 
+        try:
+            # Make meta-data entry into NDB
+            format = "%Y-%m-%dT%H:%M:%SZ"
+
+            entry = Revision(id = str(revid),
+                             revision_id = int(revid),
+                             name = str(revid),
+                             pageid = int(pageid),
+                             userid=str(i['userid']),
+                             username = i['user'],
+                             revision_date = datetime.strptime(i['timestamp'],format))
+
+            entry.put()
+        except Exception, er:
+            print er
+            return er
 
 
 
@@ -355,6 +383,11 @@ def assign():
             print e
             raise HTTP(400)
 
+        if vars.has_key('continuous'):
+            continuous = vars['continuous']
+        else:
+            continuous = False
+
         # Select an open task for assignment
         query = (db.analysis.status == "active") & (db.analysis.worker_id == None)
         open_analysis = db(query).select(db.analysis.ALL).first()  # First open analysis
@@ -378,12 +411,30 @@ def assign():
                                                   work_start_date  # Not updated in open_analysis
                                                   )
 
-        _get_revisions(pageid=response_dict['page']['pageid'],
-                       base_revision=response_dict['last_annotated'])
+        if vars.has_key('prefetch') and vars['prefetch']:
+            # Get the revisions from Wikipedia
+            # Put revisions in GCS
+            # Put revision metadata in NDB datastore
+
+            pageid = response_dict['page']['pageid']
+            revisions = _get_revisions(pageid=pageid,
+                           base_revision=response_dict['last_annotated'],
+                           continuous=continuous)
+            storage_result = _put_revisions_in_storage(pageid=pageid,
+                                                       bucket_name="revision_original",
+                                                       revisions=revisions)
 
         return response_dict
 
     return locals()
+
+
+@request.restful()
+def get_revisions():
+    """
+
+    :return:
+    """
 
 
 @request.restful()

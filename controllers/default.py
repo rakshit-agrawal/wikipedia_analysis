@@ -134,12 +134,8 @@ def index():
     if you need a simple wiki simply replace the two lines below with:
     return auth.wiki()
     """
-    text = initiate()
 
-    if text is not None:
-        response.flash = T(text)
-    else:
-        response.flash = T("None text")
+    response.flash = T("Welcome")
     return dict(message=T('Hello World'))
 
 

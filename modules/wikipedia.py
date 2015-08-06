@@ -142,54 +142,66 @@ class WikiFetch:
         # Return the dict with pageid(key) and last_known_revision and title as values
         return pages
 
-    def fetch_revisions_for_page(self, pageid, start_rev="", chunk_size=10):
 
+    def fetch_revisions_for_page(self, pageid=None, start_rev=None, chunk_size=20, continuous=False):
         """
-            Fetch revisions for page with the given ID.
-            Optional argument of starting revision. Mostly used to fetch continuous revisions.
+        This function connects to Wikipedia and extracts all data for revisions
+        of page with pageid.
+        Optional parameters of chunk size and continuous are used to set the number of
+        revisions to fetch.
+        start_rev is used to set a starting revision ID in retrieval process.
 
-            Using action=query
+        The revisions are retrieved in the direction from oldest to newest
 
-            Returns entire list of revisions newer than current latest.
-        """
-        WIKI_PARAMS['revisions']["pageids"] = pageid
-        WIKI_PARAMS['revisions']['rvlimit'] = chunk_size
-        # WIKI_PARAMS['revisions']["rvendid"] = LATEST_REV[pageid]
-        if start_rev != "":
-            WIKI_PARAMS['revisions']["rvstartid"] = start_rev
-
-        result = _get(url=WIKI_BASE_URL, values=WIKI_PARAMS['revisions'])
-        # print(result)
-        new_revisions = self.parse_revisions(revisions=result)
-        return new_revisions
-
-    def parse_revisions(self, revisions):
-        """
-            Parse through the revisions collected from fetch function.
-            Check if current latest is in the results.
-            If not, then keep making recursive calls to the fetch-parse function sequence
-            Create a complete list of revisions form all calls before returning it.
-
-        :param revisions:
+        :rtype : List of revisions
+        :param pageid: Wikipedia pageid
+        :param start_rev: Starting revision for pageid
+        :param chunk_size: Chunk size for number of revisions to fetch (max 50)
+        :param continuous: Boolean to fetch all possible revisions available
         :return:
         """
-        parsed_json = revisions
-        pages = parsed_json["query"]["pages"]
-        revisions = None
-        for i in pages:
-            revisions = parsed_json["query"]["pages"][i]["revisions"]
-            page_id = parsed_json["query"]["pages"][i]["pageid"]
-            print"Length of revisions - {}".format(len(revisions))
-            rev_list = []
-            for rev in revisions:
-                rev_list.append(rev["revid"])
-            latest = LATEST_REV[str(page_id)]
 
-            if int(latest) not in rev_list:
-                # if len(rev)==WIKI_MAX_REVISION_LIMIT:
-                start_id = revisions[-1]["parentid"]  # Get revisions prom last one's parent to our latest
-                more_revs = self.fetch_revisions_for_page(str(page_id), start_id)
-                revisions += more_revs
+        # Setting parameters in GET request dict
+        WIKI_PARAMS['revisions']["pageids"] = pageid
+        WIKI_PARAMS['revisions']['rvlimit'] = chunk_size
 
-        # Return complete list of revisions collected recursively
+        # Set start ID if provided. Else it remains None which means
+        # revisions start at the very first revision of page
+        if start_rev is not None and start_rev != "null":
+            WIKI_PARAMS['revisions']["rvstartid"] = start_rev
+
+        # GET the revisions from Wikipedia
+        result = _get(url=WIKI_BASE_URL, values=WIKI_PARAMS['revisions'])
+
+        # Extract revision list from resulting json
+        revisions = result["query"]["pages"][pageid]["revisions"]
+        # Check for continuous
+        if continuous:
+            # Recursively fetch all available revisions till latest
+
+            # Set latest revision of retrieved revisions as start id of next
+            # revision fetch.
+            new_start_rev = revisions[-1]['revid']
+
+            # Check for revision being actual latest by measuring revision list length
+            if len(revisions) > 1:
+                # If more than one revisions available then we may not have
+                # reached the latest revision yet.
+
+                # Remove the last entry in revisions since it is now being
+                # retrieved again.
+                revisions.pop(-1)
+
+                # Add new revisions by recursively calling this function
+                revisions += self.fetch_revisions_for_page(pageid=pageid,
+                                                           start_rev=new_start_rev,
+                                                           continuous=True)
+
+            # Else case not required here because revisions are completely
+            # updated at this point if only latest revision has been fetched.
+
+        # Else case not required in continuous check.
+        # In the absence of continuity, only the revisions from first retrieval are returned.
+
+        # Return complete list of revisions as requested in the call
         return revisions

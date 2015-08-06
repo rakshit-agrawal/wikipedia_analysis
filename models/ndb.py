@@ -28,7 +28,7 @@ class Revision(ndb.Model):
 class AuthorReputation(ndb.Model):
     userid = ndb.StringProperty()
     reputation = ndb.FloatProperty()
-    last_updated = ndb.DateTimeProperty(auto_update_now=True) # check the auto_now vs. auto_update_now? 
+    #last_updated = ndb.DateTimeProperty(auto_update_now=True) # check the auto_now vs. auto_update_now?
     
 class AuthorshipMedatada(ndb.Model):
     revision_id = ndb.IntegerProperty()

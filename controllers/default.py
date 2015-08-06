@@ -12,7 +12,7 @@
 # Class code:
 
 import json
-
+from google_connect import GoogleConnect
 from wikipedia import WikiFetch
 
 MYSECRET = "behappy"
@@ -105,12 +105,23 @@ def view():
     return locals()
 
 
-def initiate():
+def initiate(content=None):
     analysis_entry = Revision(id="131231",
                               pageid=1213,
                               )
     analysis_entry.put()
-    return locals()
+
+    g = GoogleConnect()
+
+    g.write_to_bucket(bucket_name="revision_original",
+                      file_to_write="testfile.txt",
+                      content=content)
+
+    read_text = g.read_from_bucket(bucket_name="revision_original",
+                      file_to_write="testfile.txt")
+
+    print read_text
+    return read_text
 
 
 ################
@@ -123,8 +134,12 @@ def index():
     if you need a simple wiki simply replace the two lines below with:
     return auth.wiki()
     """
-    initiate()
-    response.flash = T("Welcome to web2py!")
+    text = initiate()
+
+    if text is not None:
+        response.flash = T(text)
+    else:
+        response.flash = T("None text")
     return dict(message=T('Hello World'))
 
 

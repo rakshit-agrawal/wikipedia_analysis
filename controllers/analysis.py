@@ -15,9 +15,11 @@ This controller takes care of the following functions:
 
 Rakshit Agrawal, 2015
 """
+import json
 from pprint import pprint
 
 from wikipedia import WikiFetch, WIKI_PARAMS, WIKI_BASE_URL
+from google_connect import GoogleConnect
 from datetime import datetime
 import random
 
@@ -164,6 +166,37 @@ def _create_analysis_response(analysis_dict=None, worker_id=None, work_start_dat
     return base_dict
 
 
+def _get_revisions(pageid=None, base_revision=None, chunk_size=20, continuous=False):
+    """
+
+    :param pageid:
+    :return:
+    """
+
+    w = WikiFetch()
+    g = GoogleConnect()
+    revisions = w.fetch_revisions_for_page(pageid=pageid,
+                                           start_rev=base_revision,
+                                           chunk_size=chunk_size,
+                                           continuous=continuous)
+
+    for i in revisions:
+        revid = i['revid']
+
+        # Put revisions into the bucket
+        filename = str(revid) + ".json"
+        try:
+            g.write_to_bucket(bucket_name="revision_original",
+                          file_to_write=filename,
+                          content = json.dumps(obj=i))
+            print ("Written to bucket")
+
+        except Exception, e:
+            print "Exception while writing to bucket is: {}".format(e)
+
+
+
+
 def index():
     """
     Shows open analysis requirements. Index only for the web page.
@@ -308,7 +341,7 @@ def assign():
 
     :return:
     """
-    response.view = 'generic.'+request.extension
+    response.view = 'generic.' + request.extension
 
     def GET(*args, **vars):
 
@@ -345,6 +378,9 @@ def assign():
                                                   work_start_date  # Not updated in open_analysis
                                                   )
 
+        _get_revisions(pageid=response_dict['page']['pageid'],
+                       base_revision=response_dict['last_annotated'])
+
         return response_dict
 
     return locals()
@@ -376,7 +412,7 @@ def complete():
     :param comments:
     :return:
     """
-    response.view = 'generic.'+request.extension
+    response.view = 'generic.' + request.extension
 
     def POST(*args, **vars):
 
@@ -411,6 +447,5 @@ def complete():
                                  work_start_date=None,
                                  last_annotated=last_annotated,
                                  status="active")
-
 
     return locals()

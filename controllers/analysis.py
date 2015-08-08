@@ -435,6 +435,48 @@ def get_revisions():
 
     :return:
     """
+    response.view = 'generic.' + request.extension
+
+    def GET(*args, **vars):
+
+        # Basic authentication check using a secret
+        # TODO: Change to header based authentication
+        try:
+            secret = vars['secret']
+            if secret != MYSECRET:
+                raise HTTP(400)
+        except KeyError, e:
+            print e
+            raise HTTP(400)
+
+        if vars.has_key('continuous'):
+            continuous = vars['continuous']
+        else:
+            continuous = False
+
+        try:
+            # Get the revisions from Wikipedia
+            # Put revisions in GCS
+            # Put revision metadata in NDB datastore
+
+            pageid = vars['pageid']
+            base_revision = vars['base_revision']
+            continuous = bool(vars['continuous']) if not None else False
+
+            revisions = _get_revisions(pageid=pageid,
+                           base_revision=base_revision,
+                           continuous=continuous)
+            storage_result = _put_revisions_in_storage(pageid=pageid,
+                                                       bucket_name="revision_original",
+                                                       revisions=revisions)
+        except:
+            raise HTTP(500)
+
+        return revisions
+
+    return locals()
+
+
 
 
 @request.restful()

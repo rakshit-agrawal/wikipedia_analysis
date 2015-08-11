@@ -23,7 +23,7 @@ class GoogleConnect:
         """
         bucket = "/" + bucket_name
         filename = bucket + "/" + file_to_write
-        print filename
+        #print filename
         write_retry_params = gcs.RetryParams(backoff_factor=1.1)
         try:
             gcs_file = gcs.open(filename,
@@ -35,7 +35,7 @@ class GoogleConnect:
         except Exception, e:
             return e
 
-        print gcs_file
+        #print gcs_file
         if content:
             gcs_file.write(data=content)
         else:
@@ -56,7 +56,7 @@ class GoogleConnect:
         gcs_file = gcs.open(filename)
         content = gcs_file.readline()
         gcs_file.close()
-        print(content)
+        #print(content)
 
         return content
 

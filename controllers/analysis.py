@@ -16,13 +16,12 @@ This controller takes care of the following functions:
 Rakshit Agrawal, 2015
 """
 import json
-from pprint import pprint
-
-from wikipedia import WikiFetch, WIKI_PARAMS, WIKI_BASE_URL
-from google_connect import GoogleConnect
 from datetime import datetime
 import random
-import logging
+
+from wikipedia import WikiFetch, WIKI_PARAMS, WIKI_BASE_URL
+
+from google_connect import GoogleConnect
 
 __author__ = 'rakshit'
 
@@ -184,7 +183,7 @@ def _get_revisions(pageid=None, base_revision=None, chunk_size=20, continuous=Fa
     return revisions
 
 
-def _put_revisions_in_storage(pageid = None, bucket_name = None, revisions = None):
+def _put_revisions_in_storage(pageid=None, bucket_name=None, revisions=None, ndb_entry=None):
     """
 
     :param revisions:
@@ -192,14 +191,14 @@ def _put_revisions_in_storage(pageid = None, bucket_name = None, revisions = Non
     """
     g = GoogleConnect()
 
-    for i,v in enumerate(revisions):
+    for i, v in enumerate(revisions):
         revid = v['revid']
         filename = str(revid) + ".json"
         try:
             g.write_to_bucket(bucket_name=bucket_name,
-                          file_to_write=filename,
-                          content = json.dumps(obj=v))
-            #print ("Written to bucket")
+                              file_to_write=filename,
+                              content=json.dumps(obj=v))
+            # print ("Written to bucket")
 
 
 
@@ -211,21 +210,20 @@ def _put_revisions_in_storage(pageid = None, bucket_name = None, revisions = Non
             # Make meta-data entry into NDB
             format = "%Y-%m-%dT%H:%M:%SZ"
 
-            entry = Revision(id = str(revid),
-                             revision_id = int(revid),
-                             name = str(revid),
-                             pageid = int(pageid),
-                             userid=str(v['userid']),
-                             username = v['user'],
-                             revision_date = datetime.strptime(v['timestamp'],format))
+            entry = NDB_MODELS[ndb_entry](id=str(revid),
+                                          revision_id=int(revid),
+                                          name=str(revid),
+                                          pageid=int(pageid),
+                                          userid=str(v['userid']),
+                                          username=v['user'],
+                                          revision_date=datetime.strptime(v['timestamp'], format))
 
             entry.put()
         except Exception, er:
             print "Error is {}".format(str(er))
-            #print er
+            # print er
             return er
-        print "Count - {}".format(i)
-
+        #print "Count - {}".format(i)
 
 
 def index():
@@ -450,17 +448,17 @@ def get_revisions():
             if secret != MYSECRET:
                 raise HTTP(400)
         except KeyError, e:
-            #print e
+            # print e
             raise HTTP(400)
 
         if vars.has_key('continuous'):
             continuous = bool(vars['continuous'])
-            #print continuous
-            print(type(continuous))
+            # print continuous
+            # print(type(continuous))
         else:
             continuous = False
 
-        #try:
+            # try:
             # Get the revisions from Wikipedia
             # Put revisions in GCS
             # Put revision metadata in NDB datastore
@@ -468,45 +466,44 @@ def get_revisions():
         if vars.has_key('pageid'):
             pageid = vars['pageid']
         else:
-            raise HTTP('403','Page ID not provided')
+            raise HTTP('403', 'Page ID not provided')
 
         if vars.has_key('base_revision'):
             base_revision = vars['base_revision']
         else:
-            raise HTTP('403',"base revision not provided")
+            raise HTTP('403', "base revision not provided")
 
         try:
             revisions = _get_revisions(pageid=pageid,
-                           base_revision=base_revision,
-                           continuous=continuous)
+                                       base_revision=base_revision,
+                                       continuous=continuous)
             print "Success till here"
         except Exception, e:
             print "Error in getting revisions"
             print(e)
-            raise HTTP('403','Problem in getting revisions')
+            raise HTTP('403', 'Problem in getting revisions')
 
         try:
 
             storage_result = _put_revisions_in_storage(pageid=pageid,
                                                        bucket_name="revision_original",
-                                                       revisions=revisions)
+                                                       revisions=revisions,
+                                                       ndb_entry="revision_original")
             print "Should be done"
 
             print(type(revisions))
             return dict(revisions=revisions)
         except Exception, e:
             print "Error at exception in get_revisions"
-            #print(e)
-            #raise HTTP(400)
-            #raise HTTP(500)
+            # print(e)
+            # raise HTTP(400)
+            # raise HTTP(500)
 
         print "No.of revisions {}".format(len(revisions))
 
-        #return revisions
+        # return revisions
 
     return locals()
-
-
 
 
 @request.restful()

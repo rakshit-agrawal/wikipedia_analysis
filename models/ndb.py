@@ -6,7 +6,6 @@ from google.appengine.ext import ndb
 
 __author__ = 'rakshit'
 
-
 class Analysis(ndb.Model):
     type = ndb.StringProperty()
     result = ndb.FloatProperty()  # Main property coming out of an analysis (eg., overall trust)
@@ -21,6 +20,7 @@ class Revision(ndb.Model):
     userid = ndb.StringProperty()  # UserID same as wikipedia
     username = ndb.StringProperty()  # username from Wikipedia
     revision_date = ndb.DateTimeProperty()  # Time when revision was submitted to Wikipedia
+    gcs_key = ndb.StringProperty()
 
 
 class AuthorReputation(ndb.Model):
@@ -34,3 +34,19 @@ class AuthorshipMedatada(ndb.Model):
     # ... 
     gcs_key = ndb.StringProperty() # check 
     
+
+
+class RevisionTrust(ndb.Model):
+    revision_id = ndb.IntegerProperty() # RevID as an integer entry for itself
+    name = ndb.StringProperty()  # RevID same as wikipedia in String format
+    pageid = ndb.IntegerProperty()  # PageID same as wikipedia
+    userid = ndb.StringProperty()  # UserID same as wikipedia
+    username = ndb.StringProperty()  # username from Wikipedia
+    revision_date = ndb.DateTimeProperty()  # Time when revision was submitted to Wikipedia
+    gcs_key = ndb.StringProperty()
+
+
+NDB_MODELS = {
+    'revision_original':Revision,
+    'trust':RevisionTrust,
+}

@@ -7,13 +7,6 @@ from google.appengine.ext import ndb
 __author__ = 'rakshit'
 
 
-class Analysis(ndb.Model):
-    type = ndb.StringProperty()
-    result = ndb.FloatProperty()  # Main property coming out of an analysis (eg., overall trust)
-    values = ndb.JsonProperty()  # This can hold a dict of all other values within that analysis
-    annotated_dump = ndb.StringProperty()  # This should be the GCS item path
-
-
 class Revision(ndb.Model):
     revision_id = ndb.IntegerProperty()  # RevID as an integer entry for itself
     name = ndb.StringProperty()  # RevID same as wikipedia in String format

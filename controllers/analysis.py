@@ -588,6 +588,7 @@ def complete():
         print analysis_type
         print last_annotated
 
+        last_annotated = int(last_annotated)
         # Validate submission by checking worker ID
         entry = db(db.analysis.id == entry_id).select().first()
         if entry.worker_id != vars['worker_id']:
@@ -625,15 +626,15 @@ def complete():
             if last_annotated == last_known_rev:
 
                 # Close the analysis. Remove entry from DB
-                query = (db.analysis.id == entry_id)
-                db(query).update(worker_id=None,
+                entry = db(db.analysis.id == entry_id).select().first()
+                entry.update_record(worker_id=None,
                                  work_start_date=None,
                                  last_annotated=last_annotated,
                                  status="inactive")
             else:
                 # Reopen the analysis. Set worker ID and start date to None
-                query = (db.analysis.id == entry_id)
-                db(query).update(worker_id=None,
+                entry = db(db.analysis.id == entry_id).select().first()
+                entry.update_record(worker_id=None,
                                  work_start_date=None,
                                  last_annotated=last_annotated,
                                  status="active")

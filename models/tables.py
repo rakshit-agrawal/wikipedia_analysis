@@ -21,7 +21,7 @@ db.define_table('analysis_type',
 db.define_table('analysis',
                 Field('analysis_type','reference analysis_type'),  # Type of analysis, e.g., reputation, or authorship.
                 Field('pageid', 'reference wikipages'),  # Unique for each type of analysis.
-                Field('last_annotated'),  # Last annotated revision for the analysis-page pair
+                Field('last_annotated', 'integer', default=0),  # Last annotated revision for the analysis-page pair
                 Field('worker_id'),
                 # Each worker generates a random id, used to sign these. If blank = nobody working on this.
                 Field('work_start_date', 'datetime'),  # If too old, blank both this and worker id.

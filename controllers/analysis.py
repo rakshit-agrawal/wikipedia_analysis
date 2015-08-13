@@ -27,6 +27,8 @@ __author__ = 'rakshit'
 
 MYSECRET = "secretcode"
 
+CHUNK_SIZE = 10
+
 ALGO_META = {
     'revision_original': {'x-goog-meta-origninal': "True",
                           'x-goog-meta-algorithm': "None"},
@@ -172,7 +174,7 @@ def _create_analysis_response(analysis_dict=None, worker_id=None, work_start_dat
     return base_dict
 
 
-def _get_revisions(pageid=None, base_revision=None, chunk_size=20, continuous=False):
+def _get_revisions(pageid=None, base_revision=None, chunk_size=CHUNK_SIZE, continuous=False):
     """
 
     :param pageid:
@@ -202,7 +204,7 @@ def _write_to_ndb(model, pageid, revision):
 
     format = "%Y-%m-%dT%H:%M:%SZ"
 
-    if model is "revision_original":
+    if model == "revision_original":
         entry = Revision(id=str(revid),
                                   revision_id=int(revid),
                                   name=str(revid),
@@ -214,7 +216,7 @@ def _write_to_ndb(model, pageid, revision):
         entry.put()
         return entry
 
-    elif model is "trust":
+    elif model == "trust":
         entry = RevisionTrust(id=str(revid),
                                   revision_id=int(revid),
                                   name=str(revid),
@@ -222,6 +224,9 @@ def _write_to_ndb(model, pageid, revision):
                                   userid=str(revision['userid']),
                                   username=revision['user'],
                                   revision_date=datetime.strptime(revision['timestamp'], format),)
+        entry.put()
+        print entry
+        return entry
 
 
 def _put_revisions_in_storage(pageid=None, bucket_name=None, revisions=None, storage_meta=None, ndb_entry=None):
@@ -575,14 +580,13 @@ def complete():
     def POST(*args, **vars):
 
         # Extract DB entry ID and last_annotated from vars
-        print(vars)
-        print args
-        print(vars['page'])
-        print(vars['page'].get('pageid'))
+
         entry_id = vars['id']
         last_annotated = vars['last_annotated']
-        pageid = vars['page'].get('pageid')
-        analysis_type = vars['analysis'].get('name')
+        pageid = vars['page']['pageid']
+        analysis_type = vars['analysis']['name']
+        print analysis_type
+        print last_annotated
 
         # Validate submission by checking worker ID
         entry = db(db.analysis.id == entry_id).select().first()
@@ -599,7 +603,7 @@ def complete():
                 storage_result = _put_revisions_in_storage(pageid=pageid,
                                                            bucket_name=bucket_name,
                                                            revisions=revisions,
-                                                           ndb_entry=analysis_type)
+                                                           ndb_entry=str(analysis_type))
                 print "Should be done"
 
                 print(type(revisions))
@@ -615,6 +619,8 @@ def complete():
 
         if result['query'] != 'Error':
             last_known_rev = result["query"]["pages"][pageid]["lastrevid"]
+            print "Last known Revision is {}".format(last_known_rev)
+            print "Last annotated revision is {}".format(last_annotated)
 
             if last_annotated == last_known_rev:
 
@@ -632,6 +638,9 @@ def complete():
                                  last_annotated=last_annotated,
                                  status="active")
 
+        print analysis_type + ":"
+        print len(analysis_type)
+        print type(analysis_type)
         return(dict(status="done"))
 
     return locals()

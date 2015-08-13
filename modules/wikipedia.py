@@ -143,7 +143,7 @@ class WikiFetch:
         return pages
 
 
-    def fetch_revisions_for_page(self, pageid=None, start_rev=None, chunk_size=20, continuous=False):
+    def fetch_revisions_for_page(self, pageid=None, start_rev=None, chunk_size=10, continuous=False):
         """
         This function connects to Wikipedia and extracts all data for revisions
         of page with pageid.

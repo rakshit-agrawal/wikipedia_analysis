@@ -6,6 +6,7 @@ from google.appengine.ext import ndb
 
 __author__ = 'rakshit'
 
+
 class Analysis(ndb.Model):
     type = ndb.StringProperty()
     result = ndb.FloatProperty()  # Main property coming out of an analysis (eg., overall trust)
@@ -14,7 +15,7 @@ class Analysis(ndb.Model):
 
 
 class Revision(ndb.Model):
-    revision_id = ndb.IntegerProperty() # RevID as an integer entry for itself
+    revision_id = ndb.IntegerProperty()  # RevID as an integer entry for itself
     name = ndb.StringProperty()  # RevID same as wikipedia in String format
     pageid = ndb.IntegerProperty()  # PageID same as wikipedia
     userid = ndb.StringProperty()  # UserID same as wikipedia
@@ -26,18 +27,17 @@ class Revision(ndb.Model):
 class AuthorReputation(ndb.Model):
     userid = ndb.StringProperty()
     reputation = ndb.FloatProperty()
-    #last_updated = ndb.DateTimeProperty(auto_update_now=True) # check the auto_now vs. auto_update_now?
+    # last_updated = ndb.DateTimeProperty(auto_update_now=True) # check the auto_now vs. auto_update_now?
 
 
 class AuthorshipMedatada(ndb.Model):
     revision_id = ndb.IntegerProperty()
     # ... 
-    gcs_key = ndb.StringProperty() # check 
-    
+    gcs_key = ndb.StringProperty()  # check
 
 
 class RevisionTrust(ndb.Model):
-    revision_id = ndb.IntegerProperty() # RevID as an integer entry for itself
+    revision_id = ndb.IntegerProperty()  # RevID as an integer entry for itself
     name = ndb.StringProperty()  # RevID same as wikipedia in String format
     pageid = ndb.IntegerProperty()  # PageID same as wikipedia
     userid = ndb.StringProperty()  # UserID same as wikipedia
@@ -47,6 +47,13 @@ class RevisionTrust(ndb.Model):
 
 
 NDB_MODELS = {
-    'revision_original':Revision,
-    'trust':RevisionTrust,
+    'revision_original': Revision,
+    'trust': RevisionTrust,
+}
+
+ALGO_META = {
+    'revision_original': {'x-goog-meta-origninal': True,
+                          'x-goog-meta-algorithm': None},
+    'trust': {'x-goog-meta-origninal': False,
+              'x-goog-meta-algorithm': 'trust'},
 }

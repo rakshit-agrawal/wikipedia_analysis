@@ -19,7 +19,7 @@ import json
 from datetime import datetime
 import random
 
-from wikipedia import WikiFetch, WIKI_PARAMS, WIKI_BASE_URL
+from wikipedia import WikiFetch, WIKI_PARAMS, WIKI_BASE_URL, _get
 
 from google_connect import GoogleConnect
 
@@ -27,6 +27,12 @@ __author__ = 'rakshit'
 
 MYSECRET = "secretcode"
 
+ALGO_META = {
+    'revision_original': {'x-goog-meta-origninal': "True",
+                          'x-goog-meta-algorithm': "None"},
+    'trust': {'x-goog-meta-origninal': "False",
+              'x-goog-meta-algorithm': 'trust'},
+}
 
 def _get_analysis_type_from_db():
     """
@@ -183,7 +189,42 @@ def _get_revisions(pageid=None, base_revision=None, chunk_size=20, continuous=Fa
     return revisions
 
 
-def _put_revisions_in_storage(pageid=None, bucket_name=None, revisions=None, ndb_entry=None):
+def _write_to_ndb(model, pageid, revision):
+    """
+
+    :param model:
+    :param pageid:
+    :param revision:
+    :return:
+    """
+    # TODO: Convert into a better structure and remove if-else
+    revid = revision['revid']
+
+    format = "%Y-%m-%dT%H:%M:%SZ"
+
+    if model is "revision_original":
+        entry = Revision(id=str(revid),
+                                  revision_id=int(revid),
+                                  name=str(revid),
+                                  pageid=int(pageid),
+                                  userid=str(revision['userid']),
+                                  username=revision['user'],
+                                  revision_date=datetime.strptime(revision['timestamp'], format),)
+
+        entry.put()
+        return entry
+
+    elif model is "trust":
+        entry = RevisionTrust(id=str(revid),
+                                  revision_id=int(revid),
+                                  name=str(revid),
+                                  pageid=int(pageid),
+                                  userid=str(revision['userid']),
+                                  username=revision['user'],
+                                  revision_date=datetime.strptime(revision['timestamp'], format),)
+
+
+def _put_revisions_in_storage(pageid=None, bucket_name=None, revisions=None, storage_meta=None, ndb_entry=None):
     """
 
     :param revisions:
@@ -197,33 +238,29 @@ def _put_revisions_in_storage(pageid=None, bucket_name=None, revisions=None, ndb
         try:
             g.write_to_bucket(bucket_name=bucket_name,
                               file_to_write=filename,
+                              storage_meta=storage_meta,
                               content=json.dumps(obj=v))
             # print ("Written to bucket")
 
-
-
         except Exception, e:
             print "Exception while writing to bucket is: {}".format(str(e))
-            return e
+            #return e
+            raise HTTP(500)
 
         try:
             # Make meta-data entry into NDB
-            format = "%Y-%m-%dT%H:%M:%SZ"
 
-            entry = NDB_MODELS[ndb_entry](id=str(revid),
-                                          revision_id=int(revid),
-                                          name=str(revid),
-                                          pageid=int(pageid),
-                                          userid=str(v['userid']),
-                                          username=v['user'],
-                                          revision_date=datetime.strptime(v['timestamp'], format))
 
-            entry.put()
+            entry = _write_to_ndb(model = ndb_entry,
+                                   pageid = pageid,
+                                   revision = v)
+
         except Exception, er:
             print "Error is {}".format(str(er))
             # print er
-            return er
-        #print "Count - {}".format(i)
+            #return er
+            raise HTTP(500)
+            # print "Count - {}".format(i)
 
 
 def index():
@@ -486,9 +523,10 @@ def get_revisions():
         try:
 
             storage_result = _put_revisions_in_storage(pageid=pageid,
-                                                       bucket_name="revision_original",
+                                                       bucket_name="revisions/original",
                                                        revisions=revisions,
-                                                       ndb_entry="revision_original")
+                                                       ndb_entry="revision_original",
+                                                       storage_meta=ALGO_META['revision_original'])
             print "Should be done"
 
             print(type(revisions))
@@ -537,23 +575,49 @@ def complete():
     def POST(*args, **vars):
 
         # Extract DB entry ID and last_annotated from vars
-        entry_id = vars['analysis_id']
+        print(vars)
+        print args
+        print(vars['page'])
+        print(vars['page'].get('pageid'))
+        entry_id = vars['id']
         last_annotated = vars['last_annotated']
-        pageid = vars['pageid']
+        pageid = vars['page'].get('pageid')
+        analysis_type = vars['analysis'].get('name')
 
         # Validate submission by checking worker ID
         entry = db(db.analysis.id == entry_id).select().first()
         if entry.worker_id != vars['worker_id']:
             raise HTTP(403, "Validation failed")
 
+        # Put the result entries into storage and meta data into NDB tables
+        revisions = vars['revisions']
+        for i, v in enumerate(revisions):
+
+            try:
+                bucket_name = "revisions/" + analysis_type
+                ndb_entry = "revision_" + analysis_type
+                storage_result = _put_revisions_in_storage(pageid=pageid,
+                                                           bucket_name=bucket_name,
+                                                           revisions=revisions,
+                                                           ndb_entry=analysis_type)
+                print "Should be done"
+
+                print(type(revisions))
+            except Exception, e:
+                print "Error at exception in get_revisions"
+                # print(e)
+                # raise HTTP(400)
+                raise HTTP(500)
+
         # Get page info for the page ID containing latest revision
         WIKI_PARAMS['page_info']["pageids"] = pageid
-        result = WikiFetch._get(url=WIKI_BASE_URL, values=WIKI_PARAMS['page_info'])
+        result = _get(url=WIKI_BASE_URL, values=WIKI_PARAMS['page_info'])
 
         if result['query'] != 'Error':
             last_known_rev = result["query"]["pages"][pageid]["lastrevid"]
 
             if last_annotated == last_known_rev:
+
                 # Close the analysis. Remove entry from DB
                 query = (db.analysis.id == entry_id)
                 db(query).update(worker_id=None,
@@ -567,5 +631,7 @@ def complete():
                                  work_start_date=None,
                                  last_annotated=last_annotated,
                                  status="active")
+
+        return(dict(status="done"))
 
     return locals()

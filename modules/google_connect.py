@@ -14,9 +14,12 @@ class GoogleConnect:
         gcs.set_default_retry_params(my_default_retry_params)
         pass
 
-    def write_to_bucket(self, bucket_name=None, file_to_write=None, content = None):
+    def write_to_bucket(self, bucket_name=None, file_to_write=None, content = None, storage_meta= None,
+                        content_type='application/json'):
         """
 
+
+        :type content_type: object
         :param bucket_name:
         :param file_to_write:
         :return:
@@ -28,12 +31,12 @@ class GoogleConnect:
         try:
             gcs_file = gcs.open(filename,
                                 'w',
-                                content_type='application/json',
-                                options={'x-goog-meta-foo': 'foo',
-                                         'x-goog-meta-bar': 'bar'},
+                                content_type=content_type,
+                                options=storage_meta,
                                 retry_params=write_retry_params)
         except Exception, e:
-            return e
+            print e
+            raise Exception
 
         #print gcs_file
         if content:
@@ -59,7 +62,5 @@ class GoogleConnect:
         #print(content)
 
         return content
-
-
 
 

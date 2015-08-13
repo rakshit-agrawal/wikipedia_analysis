@@ -41,3 +41,29 @@ def get_meta():
         return user_dict
 
     return locals()
+
+"""
+{
+    'analysis_id':val,
+    'analysis_type':val,
+    'pageid':val,
+    'last_annotated':val,
+    'completion_time':val,
+    'worker_id':val,
+    'revisions': [
+        {
+            'revid':val,
+            'rev_date':val,
+            'userid':val,
+            'username':val,
+            'analysis_date':val,
+            'overall_trust':val,
+            'coeff':val,
+            'annotated_text':"large text set"
+
+        }
+    ]
+
+
+}
+"""

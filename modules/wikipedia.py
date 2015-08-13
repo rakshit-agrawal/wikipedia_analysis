@@ -27,7 +27,7 @@ WIKI_PARAMS = {
         "action": "query",
         "prop": "revisions",
         "format": "json",
-        "rvprop": "ids|timestamp|user|userid|size|comment|content|tags|flags|parsetree",
+        "rvprop": "ids|timestamp|user|userid|size|comment|content|tags",# |parsetree",
         "rvlimit": "10",
         "pageids": "32927",
         "rvdir": "newer"

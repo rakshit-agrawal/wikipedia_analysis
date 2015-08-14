@@ -605,9 +605,7 @@ def complete():
                                                            bucket_name=bucket_name,
                                                            revisions=revisions,
                                                            ndb_entry=str(analysis_type))
-                print "Should be done"
 
-                print(type(revisions))
             except Exception, e:
                 print "Error at exception in get_revisions"
                 # print(e)
@@ -639,9 +637,7 @@ def complete():
                                  last_annotated=last_annotated,
                                  status="active")
 
-        print analysis_type + ":"
-        print len(analysis_type)
-        print type(analysis_type)
+
         return(dict(status="done"))
 
     return locals()

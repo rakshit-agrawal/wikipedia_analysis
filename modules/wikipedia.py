@@ -83,6 +83,10 @@ def _get(url="", values=None, headers=None):
         response = urllib2.urlopen(req)
         result = response.read()
         result = json.loads(result)
+    except urllib2.HTTPError as e:
+        print e.code
+        print e.read()
+
     except Exception, e:
         result = dict(query="Error", error=e)
 
@@ -128,7 +132,7 @@ class WikiFetch:
 
         # Get JSON from Wikimedia
         feed = _get(url=WIKI_BASE_URL, values=WIKI_PARAMS['recent_changes'])
-
+        print feed
         # Get the page set from these changes
         pages = dict()
         for k,v in feed["query"]["pages"].iteritems():

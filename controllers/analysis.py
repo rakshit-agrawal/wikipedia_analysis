@@ -229,7 +229,7 @@ def _write_to_ndb(model, pageid, revision):
         return entry
 
 
-def _put_revisions_in_storage(pageid=None, bucket_name=None, revisions=None, storage_meta=None, ndb_entry=None):
+def _put_revisions_in_storage(pageid=None, bucket_name=None, folder_name = None, revisions=None, storage_meta=None, ndb_entry=None):
     """
 
     :param revisions:
@@ -242,6 +242,7 @@ def _put_revisions_in_storage(pageid=None, bucket_name=None, revisions=None, sto
         filename = str(revid) + ".json"
         try:
             g.write_to_bucket(bucket_name=bucket_name,
+                              folder_name = folder_name,
                               file_to_write=filename,
                               storage_meta=storage_meta,
                               content=json.dumps(obj=v))
@@ -528,7 +529,8 @@ def get_revisions():
         try:
 
             storage_result = _put_revisions_in_storage(pageid=pageid,
-                                                       bucket_name="revisions/original",
+                                                       bucket_name="revisions",
+                                                       folder_name="original",
                                                        revisions=revisions,
                                                        ndb_entry="revision_original",
                                                        storage_meta=ALGO_META['revision_original'])

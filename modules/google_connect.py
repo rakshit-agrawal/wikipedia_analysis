@@ -60,6 +60,10 @@ class GoogleConnect:
         else:
             gcs_file.write('test text')
         print gcs_file
+        try:
+            print gcs_file.key()
+        except Exception, e:
+            print e
         gcs_file.close()
         """
 

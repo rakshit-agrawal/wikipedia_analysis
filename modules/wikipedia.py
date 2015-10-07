@@ -60,7 +60,17 @@ WIKI_PARAMS = {
         "prop": "info",
         "format": "json",
         "pageids": ""
-    }
+    },
+    'user_contributions': {  # Parameters to fetch revisions for given pageids
+        "action": "query",
+        "list": "usercontribs",
+        "format": "json",
+        "ucprop": "ids|title|timestamp|sizediff|tags|size|comment",
+        "uclimit": "10",
+        "ucuser": "",
+        "ucdir": "newer",
+        "ucnamespace":"0",
+    },
 }
 
 
@@ -209,3 +219,32 @@ class WikiFetch:
 
         # Return complete list of revisions as requested in the call
         return revisions
+
+    def get_user_contributions(self, username=None, start_time=None, end_time=None, cont_limit=None):
+        """
+        This function connects to Wikipedia and fetches edits done by a user
+        on Wikipedia.
+        The results of this function can then be used to retrieve corresponding revision data.
+        :param username:
+        :param start_time:
+        :param end_time:
+        :param cont_limit:
+        :return:
+        """
+
+        # Setting parameters in GET request dict
+        WIKI_PARAMS['user_contributions']["ucuser"] = username
+        WIKI_PARAMS['user_contributions']['uclimit'] = cont_limit
+
+        # Set start ID if provided. Else it remains None which means
+        # contributions start at the very first revision of page
+        if start_time is not None and start_time != "null":
+            WIKI_PARAMS['user_contributions']["ucstart"] = start_time
+
+        # GET the user contributions from Wikipedia
+        result = _get(url=WIKI_BASE_URL, values=WIKI_PARAMS['user_contributions'])
+
+        # Extract user contribution list from resulting json
+        contributions = result["query"]["usercontribs"]
+
+        return contributions

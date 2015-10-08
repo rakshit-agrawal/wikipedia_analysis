@@ -12,6 +12,7 @@ import urllib
 import urllib2
 
 from pprint import pprint
+
 __author__ = 'rakshit'
 
 DATE_PATTERN = "%a, %d %b %Y %H:%M:%S %z"
@@ -24,53 +25,53 @@ WIKI_MAX_REVISION_LIMIT = 500  # Update if any change observed. Not used mostly 
 
 WIKI_PARAMS = {
     'revisions': {  # Parameters to fetch revisions for given pageids
-        "action": "query",
-        "prop": "revisions",
-        "format": "json",
-        "rvprop": "ids|timestamp|user|userid|size|comment|content|tags",# |parsetree",
-        "rvlimit": "10",
-        "pageids": "32927",
-        "rvdir": "newer"
-    },
+                    "action": "query",
+                    "prop": "revisions",
+                    "format": "json",
+                    "rvprop": "ids|timestamp|user|userid|size|comment|content|tags",  # |parsetree",
+                    "rvlimit": "10",
+                    "pageids": "32927",
+                    "rvdir": "newer"
+                    },
     'recent_changes': {  # Parameters to fetch revisions for pages with recent changes
-        "action": "query",
-        "prop": "revisions",
-        "format": "json",
-        "indexpageids": "1",
-        "generator": "recentchanges",
-        "grcdir": "older",
-        "grcnamespace": "0",
-        "grcprop": "ids",
-        "grcshow": "minor",
-        "grclimit": "30"
+                         "action": "query",
+                         "prop": "revisions",
+                         "format": "json",
+                         "indexpageids": "1",
+                         "generator": "recentchanges",
+                         "grcdir": "older",
+                         "grcnamespace": "0",
+                         "grcprop": "ids",
+                         "grcshow": "minor",
+                         "grclimit": "30"
 
-    },
+                         },
     'category_members': {  # Parameters to fetch list of category members for a given category.
-        "action": "query",
-        "list": "categorymembers",
-        "cmpageid": "44126225",
-        "format": "json",
-        "cmprop": "ids|title|type",
-        "cmlimit": "max",
-        "indexpageids": "1",
+                           "action": "query",
+                           "list": "categorymembers",
+                           "cmpageid": "44126225",
+                           "format": "json",
+                           "cmprop": "ids|title|type",
+                           "cmlimit": "max",
+                           "indexpageids": "1",
 
-    },
+                           },
     'page_info': {  # Parameters for Page Information
-        "action": "query",
-        "prop": "info",
-        "format": "json",
-        "pageids": ""
-    },
+                    "action": "query",
+                    "prop": "info",
+                    "format": "json",
+                    "pageids": ""
+                    },
     'user_contributions': {  # Parameters to fetch revisions for given pageids
-        "action": "query",
-        "list": "usercontribs",
-        "format": "json",
-        "ucprop": "ids|title|timestamp|sizediff|tags|size|comment",
-        "uclimit": "10",
-        "ucuser": "",
-        "ucdir": "newer",
-        "ucnamespace":"0",
-    },
+                             "action": "query",
+                             "list": "usercontribs",
+                             "format": "json",
+                             "ucprop": "ids|title|timestamp|sizediff|tags|size|comment",
+                             "uclimit": "10",
+                             "ucuser": "",
+                             "ucdir": "newer",
+                             "ucnamespace": "0",
+                             },
 }
 
 
@@ -145,17 +146,16 @@ class WikiFetch:
         print feed
         # Get the page set from these changes
         pages = dict()
-        for k,v in feed["query"]["pages"].iteritems():
+        for k, v in feed["query"]["pages"].iteritems():
             pageid = v['pageid']  # Page ID
             revid = v['revisions'][0]['revid']  # Last known revision
             title = v['title']  # Title of Page
 
             # Add entry in the pages dict
-            pages[pageid] = dict(last_known_rev = revid, title = title)
+            pages[pageid] = dict(last_known_rev=revid, title=title)
 
         # Return the dict with pageid(key) and last_known_revision and title as values
         return pages
-
 
     def fetch_revisions_for_page(self, pageid=None, start_rev=None, chunk_size=10, continuous=False):
         """
@@ -211,8 +211,8 @@ class WikiFetch:
                                                            start_rev=new_start_rev,
                                                            continuous=True)
 
-            # Else case not required here because revisions are completely
-            # updated at this point if only latest revision has been fetched.
+                # Else case not required here because revisions are completely
+                # updated at this point if only latest revision has been fetched.
 
         # Else case not required in continuous check.
         # In the absence of continuity, only the revisions from first retrieval are returned.
@@ -220,7 +220,7 @@ class WikiFetch:
         # Return complete list of revisions as requested in the call
         return revisions
 
-    def get_user_contributions(self, username=None, start_time=None, end_time=None, cont_limit=None):
+    def get_user_contributions(self, username=None, start_time=None, end_time=None, cont_limit=20):
         """
         This function connects to Wikipedia and fetches edits done by a user
         on Wikipedia.

@@ -9,6 +9,13 @@ db.define_table('wikipages',
                 format = "%(pageid)s"
                 )
 
+# Table for Wikipedia users
+db.define_table('wiki_users',
+                Field('username', unique=True),  # Username same as Wikipedia
+                Field('userid'),  # UserID from Wikipedia
+                format = "%(username)s"
+                )
+
 # Table for different analysis
 db.define_table('analysis_type',
                 Field('name', unique=True),  # Name of the analysis, e.g., reputation, or authorship.
@@ -28,6 +35,20 @@ db.define_table('analysis',
                 Field('priority', 'double'),  # Priority of analysis.
                 Field('status')  # If active, then analysis needs to be done, else no
                 )
+
+
+# Table to store user-contribution-analysis entries.
+db.define_table('user_analysis',
+                Field('analysis_type','reference analysis_type'),  # Type of analysis, e.g., reputation, or authorship.
+                Field('user', 'reference wiki_users'),  # Unique for each type of analysis.
+                Field('last_recorded', 'integer', default=0),  # Last recorded revision for the analysis-user pair
+                Field('worker_id'),
+                # Each worker generates a random id, used to sign these. If blank = nobody working on this.
+                Field('work_start_date', 'datetime'),  # If too old, blank both this and worker id.
+                Field('priority', 'double'),  # Priority of analysis.
+                Field('status')  # If active, then analysis needs to be done, else no
+                )
+
 
 # For first run
 

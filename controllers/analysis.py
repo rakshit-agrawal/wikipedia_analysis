@@ -90,8 +90,8 @@ def _analysis_lock_status(pageid, analysis_type):
     """
 
     # Query the database for page ID and analysis type
-    query = (db.analysis.analysis_type == analysis_type) & (db.analysis.pageid == pageid)
-    analysis = db(query).select(db.analysis.ALL)
+    query = (db.page_analysis.analysis_type == analysis_type) & (db.page_analysis.pageid == pageid)
+    analysis = db(query).select(db.page_analysis.ALL)
     first_analysis = analysis.first()
 
     ret_dict = {}  # Initialize return dictionary
@@ -277,8 +277,8 @@ def index():
     :return: Return local variables to the view where they can be printed
     """
 
-    query = (db.analysis.worker_id == None)
-    items = db(query).select(db.analysis.ALL)
+    query = (db.page_analysis.worker_id == None)
+    items = db(query).select(db.page_analysis.ALL)
     if items is not None:
         items = items.as_dict()
     else:
@@ -289,9 +289,9 @@ def index():
     return locals()
 
 
-def create_analysis(pageid=None, analysis_type=None):
+def create_page_analysis(pageid=None, analysis_type=None):
     """
-    Create Analysis is called through the generate function for
+    Create Page Analysis is called through the generate function for
     each analysis type per page with change.
 
     This function checks presence and status of an analysis in the 'analysis' table,
@@ -313,9 +313,9 @@ def create_analysis(pageid=None, analysis_type=None):
     if lock_status['status'] in ["NEW", "OPEN"]:
         # If it's a new or open analysis, then make it active
         # Create an entry in Analysis table
-        query = (db.analysis.pageid == pageid) & (db.analysis.analysis_type == analysis_type)
+        query = (db.page_analysis.pageid == pageid) & (db.page_analysis.analysis_type == analysis_type)
         try:
-            analysis_id = db.analysis.update_or_insert(query,
+            analysis_id = db.page_analysis.update_or_insert(query,
                                                        analysis_type=analysis_type,
                                                        pageid=pageid,
                                                        worker_id=None,
@@ -386,7 +386,11 @@ def generate():
         for analysis in analysis_types.keys():
 
             # Call the create analysis function for writing entry in the DB.
-            analysis_entry = create_analysis(pageid=pageid, analysis_type=analysis)
+            analysis_entry = create_page_analysis(pageid=pageid, analysis_type=analysis)
+
+            # Call the create analysis function for writing entry in the DB.
+            #analysis_entry = create_user_analysis(username=username, analysis_type=analysis)
+
             print analysis_entry
             if analysis_entry['status'] == "SUCCESS":
                 # If an entry has been created, add it to the set of generated entries
@@ -433,8 +437,8 @@ def assign():
             continuous = False
 
         # Select an open task for assignment
-        query = (db.analysis.status == "active") & (db.analysis.worker_id == None)
-        open_analysis = db(query).select(db.analysis.ALL).first()  # First open analysis
+        query = (db.page_analysis.status == "active") & (db.page_analysis.worker_id == None)
+        open_analysis = db(query).select(db.page_analysis.ALL).first()  # First open analysis
 
         print(open_analysis is None)
 
@@ -592,7 +596,7 @@ def complete():
 
         last_annotated = int(last_annotated)
         # Validate submission by checking worker ID
-        entry = db(db.analysis.id == entry_id).select().first()
+        entry = db(db.page_analysis.id == entry_id).select().first()
         if entry.worker_id != vars['worker_id']:
             raise HTTP(403, "Validation failed")
 
@@ -626,14 +630,14 @@ def complete():
             if last_annotated == last_known_rev:
 
                 # Close the analysis. Remove entry from DB
-                entry = db(db.analysis.id == entry_id).select().first()
+                entry = db(db.page_analysis.id == entry_id).select().first()
                 entry.update_record(worker_id=None,
                                  work_start_date=None,
                                  last_annotated=last_annotated,
                                  status="inactive")
             else:
                 # Reopen the analysis. Set worker ID and start date to None
-                entry = db(db.analysis.id == entry_id).select().first()
+                entry = db(db.page_analysis.id == entry_id).select().first()
                 entry.update_record(worker_id=None,
                                  work_start_date=None,
                                  last_annotated=last_annotated,
@@ -641,5 +645,19 @@ def complete():
 
 
         return(dict(status="done"))
+
+    return locals()
+
+
+@request.restful()
+def get_user_contribs():
+
+    response.view = 'generic.' + request.extension
+
+    def GET(*args, **vars):
+
+        user = vars['user']
+
+        return locals()
 
     return locals()

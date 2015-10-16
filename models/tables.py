@@ -25,7 +25,7 @@ db.define_table('analysis_type',
                 )
 
 # Table to store page-analysis entries.
-db.define_table('analysis',
+db.define_table('page_analysis',
                 Field('analysis_type','reference analysis_type'),  # Type of analysis, e.g., reputation, or authorship.
                 Field('pageid', 'reference wikipages'),  # Unique for each type of analysis.
                 Field('last_annotated', 'integer', default=0),  # Last annotated revision for the analysis-page pair

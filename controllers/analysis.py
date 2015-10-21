@@ -17,6 +17,7 @@ Rakshit Agrawal, 2015
 """
 import json
 from datetime import datetime
+import logging
 from pprint import pprint
 import random
 
@@ -50,7 +51,7 @@ def _get_analysis_type_from_db():
 
     analysis_types = db().select(db.analysis_type.id, db.analysis_type.name)
     for entry in analysis_types:
-        ret_dict[entry.id] = entry.name
+        ret_dict[entry.id] = (entry.name, entry.for_page)
 
     return ret_dict
 
@@ -77,7 +78,19 @@ def _get_page_priority(pageid=None):
     return 1
 
 
-def _analysis_lock_status(pageid, analysis_type):
+def _get_user_priority(userid):
+    """
+    Generate priority value for a given User ID.
+    At present only returns value of 1.
+
+    :param user: username of a wikipedia page
+    :rtype: double
+    :return: priority value
+    """
+    return 1
+
+
+def _analysis_lock_status(page_id=None, user_id=None, analysis_type=None):
     """
     This is a utility function called by other DB manipulation functions.
     For an entry in analysis table, it checks the presence and lock status of that entry
@@ -85,17 +98,31 @@ def _analysis_lock_status(pageid, analysis_type):
     It first queries the analysis table with given pageID and analysis type.
     Using these two it retrieves lock status of entry.
 
-    :param pageid: Page ID of the page under concern
+    :param page_id: Page ID of the page under concern
     :param analysis_type: Analysis type ID of concerned analysis
     :return:
     """
 
-    # Query the database for page ID and analysis type
-    query = (db.page_analysis.analysis_type == analysis_type) & (db.page_analysis.pageid == pageid)
-    analysis = db(query).select(db.page_analysis.ALL)
-    first_analysis = analysis.first()
-
     ret_dict = {}  # Initialize return dictionary
+
+    # Check if requested for a page
+    if page_id is not None:
+
+        # Query the database for page ID and analysis type
+        query = (db.page_analysis.analysis_type == analysis_type) & (db.page_analysis.pageid == page_id)
+        analysis = db(query).select(db.page_analysis.ALL)
+        first_analysis = analysis.first()
+
+    # Check if requested for a user
+    elif user_id is not None:
+
+        # Query the database for user ID and analysis type
+        query = (db.user_analysis.analysis_type == analysis_type) & (db.user_analysis.userid == user_id)
+        analysis = db(query).select(db.user_analysis.ALL)
+        first_analysis = analysis.first()
+
+    else:
+        return dict(status="ERROR", value="Both page and user are None")
 
     # Check if it is not none to check presence of an entry
     if first_analysis is not None:
@@ -108,23 +135,21 @@ def _analysis_lock_status(pageid, analysis_type):
             first_analysis = first_analysis.as_dict()
 
             # Get worker ID
-            worker_id = first_analysis['worker_id']
+            worker_id = first_analysis.get('worker_id',"0")
 
             if worker_id is None:
                 # If worker_id is None then the analysis is free and available for update
                 ret_dict['status'] = "OPEN"
                 ret_dict['value'] = "Page-Analysis pair is open for creation/assignment"
-                pass
             else:
                 # Else the page is locked and can't be altered
                 ret_dict['status'] = "LOCKED"
                 ret_dict['value'] = "Page-Analysis pair is locked an cannot be altered"
-                pass
 
     else:
         # No entry exists. Therefore, no lock exists. New entry can be created.
         ret_dict['status'] = "NEW"
-        ret_dict['value'] = "Page-Analysis pair doesn't exist. Needs to be created before assignment"
+        ret_dict['value'] = "Analysis record doesn't exist. Needs to be created before assignment"
 
     return ret_dict
 
@@ -309,7 +334,7 @@ def create_page_analysis(pageid=None, analysis_type=None):
 
     ret_dict = {}  # Initialize return dictionary
 
-    lock_status = _analysis_lock_status(pageid=pageid, analysis_type=analysis_type)
+    lock_status = _analysis_lock_status(page_id=pageid, analysis_type=analysis_type)
 
     if lock_status['status'] in ["NEW", "OPEN"]:
         # If it's a new or open analysis, then make it active
@@ -323,6 +348,56 @@ def create_page_analysis(pageid=None, analysis_type=None):
                                                        work_start_date=None,
                                                        status="active",
                                                        priority=_get_page_priority(pageid=pageid)  # Priority of page
+                                                       )
+            # If an entry has been created or updated, return success with DB entry ID
+            ret_dict['status'] = "SUCCESS"
+            ret_dict['value'] = analysis_id
+
+        except Exception as e:
+            ret_dict['status'] = "ERROR"
+            ret_dict['value'] = e
+    else:
+        # Analysis entry cannot be created.
+        ret_dict = lock_status
+
+    # Return the dict holding status and value
+    return ret_dict
+
+
+
+def create_user_analysis(user_id=None, analysis_type=None):
+    """
+    Create User Analysis is called through the generate function for
+    each analysis type per user with change.
+
+    This function checks presence and status of an analysis in the 'analysis' table,
+    and then makes decision for a new analysis entry:
+    - If there is no analysis-user entry in the table, then it creates a new entry.
+    - If there is an entry but it is locked (status="active" and worker_id, work_start_date are not None),
+      then decline creation of a new analysis.
+    - If there is an entry, and it isn't locked, then make it active
+
+    :param user_id: Wikipedia Username of the page with change
+    :param analysis_type: Analysis type used to create an analysis need. Defaults to global Default
+    :return: dict holding status and value. If successful, value is DB entry ID for analysis
+    """
+
+    ret_dict = {}  # Initialize return dictionary
+
+    lock_status = _analysis_lock_status(user_id=user_id, analysis_type=analysis_type)
+
+    if lock_status['status'] in ["NEW", "OPEN"]:
+        # If it's a new or open analysis, then make it active
+        # Create an entry in Analysis table
+        query = (db.user_analyis.userid == user_id) & (db.user_analysis.analysis_type == analysis_type)
+        try:
+            analysis_id = db.user_analysis.update_or_insert(query,
+                                                       analysis_type=analysis_type,
+                                                       userid=user_id,
+                                                       worker_id=None,
+                                                       work_start_date=None,
+                                                       status="active",
+                                                       priority=_get_user_priority(userid=user_id)  # Priority of user
                                                        )
             # If an entry has been created or updated, return success with DB entry ID
             ret_dict['status'] = "SUCCESS"
@@ -357,7 +432,8 @@ def generate():
     :return: A dict holding information of pages with recent changes
     """
 
-    generated_entries = set()  # Initializing set of analysis entries generated in one call
+    generated_pa_entries = set()  # Initializing set of page analysis entries generated in one call
+    generated_ua_entries = set()  # Initializing set of user analysis entries generated in one call
 
     # Get pages with changes
     # Comes in as a dict of pages with recent changes
@@ -374,6 +450,9 @@ def generate():
         title = v['title']
         last_known_rev = v['last_known_rev']
 
+        user = v['user']
+        userid = v['userid']
+
         # Update page table with this page's entry.
         query = (db.wikipages.pageid == pageid)
         page_id = db.wikipages.update_or_insert(query,
@@ -381,25 +460,49 @@ def generate():
                                                 last_known_rev=last_known_rev,
                                                 title=title)
 
+        # Update user table with this user's entry
+        query = (db.wikiusers.username == user)
+        user_id = db.wikiusers.update_or_insert(query,
+                                                username=user,
+                                                last_known_rev=last_known_rev,
+                                                last_edited_page=pageid)
+
         # Get available analysis_types
         analysis_types = _get_analysis_type_from_db()
         print(analysis_types)
         # For each available analysis, make an analysis requirement
-        for analysis in analysis_types.keys():
+        for analysis, info in analysis_types.iteritems():
 
-            # Call the create analysis function for writing entry in the DB.
-            analysis_entry = create_page_analysis(pageid=pageid, analysis_type=analysis)
+            # Check if analysis is for page
+            if info[1]:
+                # Call the create analysis function for writing entry in the DB.
+                page_analysis_entry = create_page_analysis(pageid=pageid, analysis_type=analysis)
+                # Call the create analysis function for writing entry in the DB.
+                #analysis_entry = create_user_analysis(username=username, analysis_type=analysis)
 
-            # Call the create analysis function for writing entry in the DB.
-            #analysis_entry = create_user_analysis(username=username, analysis_type=analysis)
+                print page_analysis_entry
+                if page_analysis_entry['status'] == "SUCCESS":
+                    # If an entry has been created, add it to the set of generated entries
+                    generated_pa_entries.add(page_analysis_entry['value'])
+                else:
+                    # TODO: Based on response, log the error or success of entries.
+                    pass
 
-            print analysis_entry
-            if analysis_entry['status'] == "SUCCESS":
-                # If an entry has been created, add it to the set of generated entries
-                generated_entries.add(analysis_entry['value'])
+            # If not for page, then it is for user.
             else:
-                # TODO: Based on response, log the error or success of entries.
-                pass
+                logging.info("This should be a user analysis")
+
+                # Call the create analysis function for writing entry in the DB.
+                user_analysis_entry = create_user_analysis(user_id=user_id, analysis_type=analysis)
+
+                print user_analysis_entry
+                if user_analysis_entry['status'] == "SUCCESS":
+                    # If an entry has been created, add it to the set of generated entries
+                    generated_ua_entries.add(user_analysis_entry['value'])
+                else:
+                    # TODO: Based on response, log the error or success of entries.
+                    pass
+
 
     return locals()
 

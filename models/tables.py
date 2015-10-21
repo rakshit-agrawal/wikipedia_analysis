@@ -10,9 +10,11 @@ db.define_table('wikipages',
                 )
 
 # Table for Wikipedia users
-db.define_table('wiki_users',
+db.define_table('wikiusers',
                 Field('username', unique=True),  # Username same as Wikipedia
-                Field('userid'),  # UserID from Wikipedia
+                Field('userid', 'integer'),  # UserID from Wikipedia
+                Field('last_known_rev'),  # Last known revision edited by the user
+                Field('last_edited_page'), # Last page edited by the user
                 format = "%(username)s"
                 )
 
@@ -20,6 +22,7 @@ db.define_table('wiki_users',
 db.define_table('analysis_type',
                 Field('name', unique=True),  # Name of the analysis, e.g., reputation, or authorship.
                 Field('author'),  # Author of analysis
+                Field('for_page','boolean', default=False), # True if analysis_type for page. False if for user
                 Field('description', 'text'),  # Description of analysis
                 Field('reference_location'),  # Reference path for algorithm code or URL call
                 )
@@ -40,7 +43,7 @@ db.define_table('page_analysis',
 # Table to store user-contribution-analysis entries.
 db.define_table('user_analysis',
                 Field('analysis_type','reference analysis_type'),  # Type of analysis, e.g., reputation, or authorship.
-                Field('user', 'reference wiki_users'),  # Unique for each type of analysis.
+                Field('userid', 'reference wikiusers'),  # Unique for each type of analysis.
                 Field('last_recorded', 'integer', default=0),  # Last recorded revision for the analysis-user pair
                 Field('worker_id'),
                 # Each worker generates a random id, used to sign these. If blank = nobody working on this.
@@ -54,4 +57,5 @@ db.define_table('user_analysis',
 
 # Create an entry for trust in analysis_type
 
-#db.analysis_type.update_or_insert(name='trust',author='Luca deAlfaro')
+db.analysis_type.update_or_insert(name='trust',author='Luca deAlfaro', for_page=True)
+#db.analysis_type.update_or_insert(name='reputation',author='Rakshit Agrawal', for_page=False)

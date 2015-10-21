@@ -151,8 +151,8 @@ class WikiFetch:
             pageid = v['pageid']  # Page ID
             revid = v['revisions'][0]['revid']  # Last known revision
             title = v['title']  # Title of Page
-            user = v['revisions'][0]['user']
-            userid = v['revisions'][0]['userid']
+            user = v['revisions'][0]['user']  # User editing the revision. Contains IP address if not a logged in user
+            userid = v['revisions'][0]['userid'] # User ID of the user. 0 is user is an IP address
 
             # Add entry in the pages dict
             pages[pageid] = dict(last_known_rev=revid,
@@ -160,7 +160,8 @@ class WikiFetch:
                                  user = user,
                                  userid = userid)
 
-        # Return the dict with pageid(key) and last_known_revision and title as values
+        # Return the dict with pageid(key) and value as a dict with keys:
+        # last_known_revision, title, user and userid
         return pages
 
     def fetch_revisions_for_page(self, pageid=None, start_rev=None, chunk_size=10, continuous=False):

@@ -37,6 +37,7 @@ WIKI_PARAMS = {
                          "action": "query",
                          "prop": "revisions",
                          "format": "json",
+                         "rvprop":"ids|timestamp|user|userid",
                          "indexpageids": "1",
                          "generator": "recentchanges",
                          "grcdir": "older",
@@ -150,9 +151,14 @@ class WikiFetch:
             pageid = v['pageid']  # Page ID
             revid = v['revisions'][0]['revid']  # Last known revision
             title = v['title']  # Title of Page
+            user = v['revisions'][0]['user']
+            userid = v['revisions'][0]['userid']
 
             # Add entry in the pages dict
-            pages[pageid] = dict(last_known_rev=revid, title=title)
+            pages[pageid] = dict(last_known_rev=revid,
+                                 title=title,
+                                 user = user,
+                                 userid = userid)
 
         # Return the dict with pageid(key) and last_known_revision and title as values
         return pages

@@ -17,6 +17,7 @@ Rakshit Agrawal, 2015
 """
 import json
 from datetime import datetime
+from pprint import pprint
 import random
 
 from wikipedia import WikiFetch, WIKI_PARAMS, WIKI_BASE_URL, _get
@@ -362,6 +363,7 @@ def generate():
     # Comes in as a dict of pages with recent changes
     pages_with_changes = WikiFetch.get_recent_changes()
 
+    pprint(pages_with_changes)
     # Set these pages open for each analysis
     # Create or update analysis entry in table for analysis
     # Iterating over all new pages with changes

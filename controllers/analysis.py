@@ -387,9 +387,11 @@ def create_user_analysis(user_id=None, analysis_type=None):
     lock_status = _analysis_lock_status(user_id=user_id, analysis_type=analysis_type)
 
     if lock_status['status'] in ["NEW", "OPEN"]:
+
         # If it's a new or open analysis, then make it active
         # Create an entry in Analysis table
-        query = (db.user_analyis.userid == user_id) & (db.user_analysis.analysis_type == analysis_type)
+
+        query = (db.user_analysis.userid == user_id) & (db.user_analysis.analysis_type == analysis_type)
         try:
             analysis_id = db.user_analysis.update_or_insert(query,
                                                        analysis_type=analysis_type,

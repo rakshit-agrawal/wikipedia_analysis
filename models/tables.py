@@ -15,7 +15,7 @@ db.define_table('wikiusers',
                 Field('userid', 'integer'),  # UserID from Wikipedia
                 Field('last_known_rev'),  # Last known revision edited by the user
                 Field('last_edited_page'), # Last page edited by the user
-                format = "%(username)s"
+                #format = "%(username)s"
                 )
 
 # Table for different analysis
@@ -58,4 +58,4 @@ db.define_table('user_analysis',
 # Create an entry for trust in analysis_type
 
 db.analysis_type.update_or_insert(name='trust',author='Luca deAlfaro', for_page=True)
-#db.analysis_type.update_or_insert(name='reputation',author='Rakshit Agrawal', for_page=False)
+db.analysis_type.update_or_insert(name='reputation',author='Rakshit Agrawal', for_page=False)

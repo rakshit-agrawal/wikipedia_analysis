@@ -45,6 +45,7 @@ db.define_table('user_analysis',
                 Field('analysis_type','reference analysis_type'),  # Type of analysis, e.g., reputation, or authorship.
                 Field('userid', 'reference wikiusers'),  # Unique for each type of analysis.
                 Field('last_recorded', 'integer', default=0),  # Last recorded revision for the analysis-user pair
+                Field('last_timestamp'), # Last timestamp value. To use when fetching in sequence
                 Field('worker_id'),
                 # Each worker generates a random id, used to sign these. If blank = nobody working on this.
                 Field('work_start_date', 'datetime'),  # If too old, blank both this and worker id.

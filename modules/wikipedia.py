@@ -31,7 +31,8 @@ WIKI_PARAMS = {
                     "rvprop": "ids|timestamp|user|userid|size|comment|content|tags",  # |parsetree",
                     "rvlimit": "10",
                     "pageids": "32927",
-                    "rvdir": "newer"
+                    "rvdir": "newer",
+                    # "rvexcludeuser":""  # Not to be used directly here. Only to be added conditionally
                     },
     'recent_changes': {  # Parameters to fetch revisions for pages with recent changes
                          "action": "query",
@@ -238,6 +239,7 @@ class WikiFetch:
         :param cont_limit:
         :return:
         """
+        print username
 
         # Setting parameters in GET request dict
         WIKI_PARAMS['user_contributions']["ucuser"] = username
@@ -245,13 +247,15 @@ class WikiFetch:
 
         # Set start ID if provided. Else it remains None which means
         # contributions start at the very first revision of page
-        if start_time is not None and start_time != "null":
-            WIKI_PARAMS['user_contributions']["ucstart"] = start_time
+        #if start_time is not None and start_time != "null":
+            #WIKI_PARAMS['user_contributions']["ucstart"] = start_time
 
         # GET the user contributions from Wikipedia
         result = _get(url=WIKI_BASE_URL, values=WIKI_PARAMS['user_contributions'])
 
+        pprint(result)
         # Extract user contribution list from resulting json
         contributions = result["query"]["usercontribs"]
+        pprint(contributions)
 
         return contributions

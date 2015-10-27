@@ -38,6 +38,7 @@ ALGO_META = {
               'x-goog-meta-algorithm': 'trust'},
 }
 
+
 def _get_analysis_type_from_db():
     """
     This function provides analysis types present in DB table analysis_type.
@@ -135,7 +136,7 @@ def _analysis_lock_status(page_id=None, user_id=None, analysis_type=None):
             first_analysis = first_analysis.as_dict()
 
             # Get worker ID
-            worker_id = first_analysis.get('worker_id',"0")
+            worker_id = first_analysis.get('worker_id', "0")
 
             if worker_id is None:
                 # If worker_id is None then the analysis is free and available for update
@@ -154,7 +155,7 @@ def _analysis_lock_status(page_id=None, user_id=None, analysis_type=None):
     return ret_dict
 
 
-def _create_analysis_response(analysis_dict=None, worker_id=None, work_start_date=None):
+def _create_page_analysis_response(analysis_dict=None, worker_id=None, work_start_date=None):
     """
     This utility function is called from assign controller.
     When the controller assigns an analysis, it needs an organized
@@ -200,6 +201,57 @@ def _create_analysis_response(analysis_dict=None, worker_id=None, work_start_dat
     return base_dict
 
 
+def _create_user_analysis_response(analysis_dict=None, worker_id=None, work_start_date=None):
+    """
+    This utility function is called from assign controller.
+    When the controller assigns an analysis, it needs an organized
+    dict to return in the resulting json.
+    That dict is built here in this function.
+
+    It uses user and analysis type information from respective tables.
+    It uses the three arguments provided for information on analysis
+
+    :param analysis_dict: Dict containing DB entry for analysis
+    :param worker_id: Worker ID generated for this assignment
+    :param work_start_date: Time for assignment
+    :return: Dict with organized information
+    """
+
+    base_dict = analysis_dict
+
+    # Get page information from DB
+    user = db(db.wikiusers.id == analysis_dict['userid']).select(db.wikiusers.ALL).first()
+    user = user.as_dict()
+    #base_dict.pop('pageid')
+    pprint(user)
+
+    # Build the page dict
+    user.pop('id')
+    user.pop('last_known_rev')
+
+    base_dict['user'] = user
+
+    pprint(base_dict)
+
+    # Get analysis_type information from DB
+    analysis_type = db(db.analysis_type.id == analysis_dict['analysis_type']).select(db.analysis_type.ALL).first()
+    analysis_type = analysis_type.as_dict()
+    base_dict.pop('analysis_type')
+
+    # Build the analysis_type dict
+    analysis_type.pop('id')  # Removing DB id from entry
+    base_dict['analysis'] = analysis_type
+
+    # Build the remaining main_dict elements
+    base_dict['priority'] = analysis_dict['priority']
+    base_dict['worker_id'] = worker_id
+    base_dict['work_start_date'] = work_start_date
+
+    print "____________________________________"
+    pprint(base_dict)
+    return base_dict
+
+
 def _get_revisions(pageid=None, base_revision=None, chunk_size=CHUNK_SIZE, continuous=False):
     """
 
@@ -217,6 +269,35 @@ def _get_revisions(pageid=None, base_revision=None, chunk_size=CHUNK_SIZE, conti
     return revisions
 
 
+def _get_user_contributions(user=None, last_timestamp=None, continuous=False):
+    """
+
+    :param user:
+    :param last_timestamp:
+    :param continuous:
+    :return:
+    """
+    w = WikiFetch()
+    contributions = w.get_user_contributions(username=user,
+                                             start_time=last_timestamp)
+    print "Length of contributions at this level {}".format(len(contributions))
+
+    return contributions
+
+
+
+@request.restful()
+def get_user_contribs():
+    response.view = 'generic.' + request.extension
+
+    def GET(*args, **vars):
+        user = vars['user']
+
+        return locals()
+
+    return locals()
+
+
 def _write_to_ndb(model, pageid, revision):
     """
 
@@ -232,30 +313,31 @@ def _write_to_ndb(model, pageid, revision):
 
     if model == "revision_original":
         entry = Revision(id=str(revid),
-                                  revision_id=int(revid),
-                                  name=str(revid),
-                                  pageid=int(pageid),
-                                  userid=str(revision['userid']),
-                                  username=revision['user'],
-                                  revision_date=datetime.strptime(revision['timestamp'], format),)
+                         revision_id=int(revid),
+                         name=str(revid),
+                         pageid=int(pageid),
+                         userid=str(revision['userid']),
+                         username=revision['user'],
+                         revision_date=datetime.strptime(revision['timestamp'], format), )
 
         entry.put()
         return entry
 
     elif model == "trust":
         entry = RevisionTrust(id=str(revid),
-                                  revision_id=int(revid),
-                                  name=str(revid),
-                                  pageid=int(pageid),
-                                  userid=str(revision['userid']),
-                                  username=revision['user'],
-                                  revision_date=datetime.strptime(revision['timestamp'], format),)
+                              revision_id=int(revid),
+                              name=str(revid),
+                              pageid=int(pageid),
+                              userid=str(revision['userid']),
+                              username=revision['user'],
+                              revision_date=datetime.strptime(revision['timestamp'], format), )
         entry.put()
         print entry
         return entry
 
 
-def _put_revisions_in_storage(pageid=None, bucket_name=None, folder_name = None, revisions=None, storage_meta=None, ndb_entry=None):
+def _put_revisions_in_storage(pageid=None, bucket_name=None, folder_name=None, revisions=None, storage_meta=None,
+                              ndb_entry=None):
     """
 
     :param revisions:
@@ -268,7 +350,7 @@ def _put_revisions_in_storage(pageid=None, bucket_name=None, folder_name = None,
         filename = str(revid) + ".json"
         try:
             g.write_to_bucket(bucket_name=bucket_name,
-                              folder_name = folder_name,
+                              folder_name=folder_name,
                               file_to_write=filename,
                               storage_meta=storage_meta,
                               content=json.dumps(obj=v))
@@ -276,21 +358,21 @@ def _put_revisions_in_storage(pageid=None, bucket_name=None, folder_name = None,
 
         except Exception, e:
             print "Exception while writing to bucket is: {}".format(str(e))
-            #return e
+            # return e
             raise HTTP(500)
 
         try:
             # Make meta-data entry into NDB
 
 
-            entry = _write_to_ndb(model = ndb_entry,
-                                   pageid = pageid,
-                                   revision = v)
+            entry = _write_to_ndb(model=ndb_entry,
+                                  pageid=pageid,
+                                  revision=v)
 
         except Exception, er:
             print "Error is {}".format(str(er))
             # print er
-            #return er
+            # return er
             raise HTTP(500)
             # print "Count - {}".format(i)
 
@@ -342,13 +424,14 @@ def create_page_analysis(pageid=None, analysis_type=None):
         query = (db.page_analysis.pageid == pageid) & (db.page_analysis.analysis_type == analysis_type)
         try:
             analysis_id = db.page_analysis.update_or_insert(query,
-                                                       analysis_type=analysis_type,
-                                                       pageid=pageid,
-                                                       worker_id=None,
-                                                       work_start_date=None,
-                                                       status="active",
-                                                       priority=_get_page_priority(pageid=pageid)  # Priority of page
-                                                       )
+                                                            analysis_type=analysis_type,
+                                                            pageid=pageid,
+                                                            worker_id=None,
+                                                            work_start_date=None,
+                                                            status="active",
+                                                            priority=_get_page_priority(pageid=pageid)
+                                                            # Priority of page
+                                                            )
             # If an entry has been created or updated, return success with DB entry ID
             ret_dict['status'] = "SUCCESS"
             ret_dict['value'] = analysis_id
@@ -362,7 +445,6 @@ def create_page_analysis(pageid=None, analysis_type=None):
 
     # Return the dict holding status and value
     return ret_dict
-
 
 
 def create_user_analysis(user_id=None, analysis_type=None):
@@ -394,13 +476,14 @@ def create_user_analysis(user_id=None, analysis_type=None):
         query = (db.user_analysis.userid == user_id) & (db.user_analysis.analysis_type == analysis_type)
         try:
             analysis_id = db.user_analysis.update_or_insert(query,
-                                                       analysis_type=analysis_type,
-                                                       userid=user_id,
-                                                       worker_id=None,
-                                                       work_start_date=None,
-                                                       status="active",
-                                                       priority=_get_user_priority(userid=user_id)  # Priority of user
-                                                       )
+                                                            analysis_type=analysis_type,
+                                                            userid=user_id,
+                                                            worker_id=None,
+                                                            work_start_date=None,
+                                                            status="active",
+                                                            priority=_get_user_priority(userid=user_id)
+                                                            # Priority of user
+                                                            )
             # If an entry has been created or updated, return success with DB entry ID
             ret_dict['status'] = "SUCCESS"
             ret_dict['value'] = analysis_id
@@ -480,7 +563,7 @@ def generate():
                 # Call the create analysis function for writing entry in the DB.
                 page_analysis_entry = create_page_analysis(pageid=pageid, analysis_type=analysis)
                 # Call the create analysis function for writing entry in the DB.
-                #analysis_entry = create_user_analysis(username=username, analysis_type=analysis)
+                # analysis_entry = create_user_analysis(username=username, analysis_type=analysis)
 
                 print page_analysis_entry
                 if page_analysis_entry['status'] == "SUCCESS":
@@ -504,7 +587,6 @@ def generate():
                 else:
                     # TODO: Based on response, log the error or success of entries.
                     pass
-
 
     return locals()
 
@@ -538,16 +620,24 @@ def assign():
             print str(e)
             raise HTTP(400)
 
-        if vars.has_key('continuous'):
-            continuous = vars['continuous']
+        type = vars.get('type', None)
+        continuous = vars.get('continuous', False)
+
+        if type:
+            if type == "page":
+                # Select an open task for assignment
+                query = (db.page_analysis.status == "active") & (db.page_analysis.worker_id == None)
+                open_analysis = db(query).select(db.page_analysis.ALL).first()  # First open analysis
+
+            elif type == "user":
+                # Select an open task for assignment
+                query = (db.user_analysis.status == "active") & (db.user_analysis.worker_id == None)
+                open_analysis = db(query).select(db.user_analysis.ALL).first()  # First open analysis
+            else:
+                raise HTTP(403, "Invalid type requested")
+
         else:
-            continuous = False
-
-        # Select an open task for assignment
-        query = (db.page_analysis.status == "active") & (db.page_analysis.worker_id == None)
-        open_analysis = db(query).select(db.page_analysis.ALL).first()  # First open analysis
-
-        print(open_analysis is None)
+            raise HTTP(403, "Type not provided")
 
         if open_analysis is None:
             raise HTTP(404)
@@ -561,10 +651,18 @@ def assign():
         # Update database entry and generate return dict
         open_analysis.update_record(worker_id=worker_id,
                                     work_start_date=work_start_date)
-        response_dict = _create_analysis_response(open_analysis.as_dict(),
-                                                  worker_id,  # Not updated in open_analysis
-                                                  work_start_date  # Not updated in open_analysis
-                                                  )
+        if type == "page":
+            response_dict = _create_page_analysis_response(open_analysis.as_dict(),
+                                                      worker_id,  # Not updated in open_analysis
+                                                      work_start_date  # Not updated in open_analysis
+                                                      )
+        elif type == "user":
+            response_dict = _create_user_analysis_response(open_analysis.as_dict(),
+                                                      worker_id,  # Not updated in open_analysis
+                                                      work_start_date  # Not updated in open_analysis
+                                                      )
+            pprint(response_dict)
+
 
         """
         if vars.has_key('prefetch') and vars['prefetch']:
@@ -580,6 +678,7 @@ def assign():
                                                        bucket_name="revision_original",
                                                        revisions=revisions)
         """
+        pprint(response_dict)
         return response_dict
 
     return locals()
@@ -628,6 +727,8 @@ def get_revisions():
             raise HTTP('403', "base revision not provided")
 
         try:
+            print pageid
+            print base_revision
             revisions = _get_revisions(pageid=pageid,
                                        base_revision=base_revision,
                                        continuous=continuous)
@@ -658,6 +759,60 @@ def get_revisions():
         print "No.of revisions {}".format(len(revisions))
 
         # return revisions
+
+    return locals()
+
+
+@request.restful()
+def get_user_contributions():
+    """
+
+    :return:
+    """
+    response.view = 'generic.' + request.extension
+
+    def GET(*args, **vars):
+
+        # Basic authentication check using a secret
+        # TODO: Change to header based authentication
+        try:
+            secret = vars['secret']
+            if secret != MYSECRET:
+                raise HTTP(400)
+        except KeyError, e:
+            # print e
+            raise HTTP(400)
+
+        continuous = vars.get('continuous', False)
+
+            # try:
+            # Get the revisions from Wikipedia
+            # Put revisions in GCS
+            # Put revision metadata in NDB datastore
+
+        if vars.has_key('user'):
+            user = vars['user']
+        else:
+            raise HTTP('403', 'Page ID not provided')
+
+        if vars.has_key('last_timestamp'):
+            last_timestamp = vars['last_timestamp']
+        else:
+            raise HTTP('403', "last timestamp not provided")
+
+        try:
+            contributions = _get_user_contributions(user=user,
+                                       last_timestamp=last_timestamp)
+            print "Success till here"
+        except Exception, e:
+            print "Error in getting user contributions"
+            print(e)
+            raise HTTP('403', 'Problem in getting user contributions')
+
+
+        print "No.of contributions {}".format(len(contributions))
+
+        return contributions
 
     return locals()
 
@@ -739,32 +894,19 @@ def complete():
                 # Close the analysis. Remove entry from DB
                 entry = db(db.page_analysis.id == entry_id).select().first()
                 entry.update_record(worker_id=None,
-                                 work_start_date=None,
-                                 last_annotated=last_annotated,
-                                 status="inactive")
+                                    work_start_date=None,
+                                    last_annotated=last_annotated,
+                                    status="inactive")
             else:
                 # Reopen the analysis. Set worker ID and start date to None
                 entry = db(db.page_analysis.id == entry_id).select().first()
                 entry.update_record(worker_id=None,
-                                 work_start_date=None,
-                                 last_annotated=last_annotated,
-                                 status="active")
+                                    work_start_date=None,
+                                    last_annotated=last_annotated,
+                                    status="active")
 
-
-        return(dict(status="done"))
-
-    return locals()
-
-
-@request.restful()
-def get_user_contribs():
-
-    response.view = 'generic.' + request.extension
-
-    def GET(*args, **vars):
-
-        user = vars['user']
-
-        return locals()
+        return (dict(status="done"))
 
     return locals()
+
+

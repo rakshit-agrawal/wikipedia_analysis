@@ -41,12 +41,6 @@ class RevisionTrust(ndb.Model):
 
 class RevisionQuality(ndb.Model):
     revision_id = ndb.IntegerProperty()  # RevID as an integer for the revision
-    name = ndb.StringProperty()  # RevID same as wikipedia in String format
-    pageid = ndb.IntegerProperty()  # PageID same as wikipedia
-    userid = ndb.StringProperty()  # UserID same as wikipedia
-    username = ndb.StringProperty()  # username from Wikipedia
-    revision_date = ndb.DateTimeProperty()  # Time when revision was submitted to Wikipedia
-    gcs_key = ndb.StringProperty()  # Google Cloud Storage key for the revision
     char_added = ndb.IntegerProperty()  # Count for the number of characters added in this edit
     char_deleted = ndb.IntegerProperty()  # Count for the number of characters deleted in this edit
     position_in_page = ndb.IntegerProperty()  # Position inside the page for change

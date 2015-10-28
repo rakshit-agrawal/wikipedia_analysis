@@ -222,7 +222,7 @@ def _create_user_analysis_response(analysis_dict=None, worker_id=None, work_star
     # Get page information from DB
     user = db(db.wikiusers.id == analysis_dict['userid']).select(db.wikiusers.ALL).first()
     user = user.as_dict()
-    #base_dict.pop('pageid')
+    # base_dict.pop('pageid')
     pprint(user)
 
     # Build the page dict
@@ -284,7 +284,6 @@ def _get_user_contributions(user=None, last_timestamp=None, continuous=False):
     print "Length of contributions at this level {}".format(len(contributions))
 
     return contributions
-
 
 
 @request.restful()
@@ -654,16 +653,15 @@ def assign():
                                     work_start_date=work_start_date)
         if type == "page":
             response_dict = _create_page_analysis_response(open_analysis.as_dict(),
-                                                      worker_id,  # Not updated in open_analysis
-                                                      work_start_date  # Not updated in open_analysis
-                                                      )
+                                                           worker_id,  # Not updated in open_analysis
+                                                           work_start_date  # Not updated in open_analysis
+                                                           )
         elif type == "user":
             response_dict = _create_user_analysis_response(open_analysis.as_dict(),
-                                                      worker_id,  # Not updated in open_analysis
-                                                      work_start_date  # Not updated in open_analysis
-                                                      )
+                                                           worker_id,  # Not updated in open_analysis
+                                                           work_start_date  # Not updated in open_analysis
+                                                           )
             pprint(response_dict)
-
 
         """
         if vars.has_key('prefetch') and vars['prefetch']:
@@ -785,11 +783,11 @@ def get_user_contributions():
             raise HTTP(400)
 
         continuous = vars.get('continuous', False)
-
-            # try:
-            # Get the revisions from Wikipedia
-            # Put revisions in GCS
-            # Put revision metadata in NDB datastore
+        print "Value and type of continuous: {}. {}".format(continuous, type(continuous))
+        # try:
+        # Get the revisions from Wikipedia
+        # Put revisions in GCS
+        # Put revision metadata in NDB datastore
 
         if vars.has_key('user'):
             user = vars['user']
@@ -803,19 +801,16 @@ def get_user_contributions():
 
         try:
             contributions = _get_user_contributions(user=user,
-                                       last_timestamp=last_timestamp)
+                                                    last_timestamp=last_timestamp,
+                                                    continuous=continuous)
             print "Success till here"
         except Exception, e:
             print "Error in getting user contributions"
             print(e)
             raise HTTP('403', 'Problem in getting user contributions')
 
-
         print "No.of contributions {}".format(len(contributions))
 
-        print "--------------------------------------"
-        pprint(contributions)
-        print "--------------------------------------"
         return dict(contributions=contributions)
 
     return locals()
@@ -912,5 +907,3 @@ def complete():
         return (dict(status="done"))
 
     return locals()
-
-

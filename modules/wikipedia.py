@@ -253,9 +253,10 @@ class WikiFetch:
         # GET the user contributions from Wikipedia
         result = _get(url=WIKI_BASE_URL, values=WIKI_PARAMS['user_contributions'])
 
-        pprint(result)
+
         # Extract user contribution list from resulting json
         contributions = result["query"]["usercontribs"]
+        print "Length of contributions {}".format(len(contributions))
         # Check for continuous
         if continuous:
             # Recursively fetch all available revisions till latest
@@ -263,7 +264,7 @@ class WikiFetch:
             # Set latest revision of retrieved revisions as start id of next
             # revision fetch.
             new_start_contr = contributions[-1]['timestamp']
-
+            print "----->>>> {}".format(new_start_contr)
             # Check for revision being actual latest by measuring revision list length
             if len(contributions) > 1:
                 # If more than one revisions available then we may not have
@@ -281,6 +282,5 @@ class WikiFetch:
                 # Else case not required here because revisions are completely
                 # updated at this point if only latest revision has been fetched.
 
-        pprint(contributions)
 
         return contributions

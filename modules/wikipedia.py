@@ -228,7 +228,7 @@ class WikiFetch:
         # Return complete list of revisions as requested in the call
         return revisions
 
-    def get_user_contributions(self, username=None, start_time=None, end_time=None, cont_limit=20):
+    def get_user_contributions(self, username=None, start_time=None, end_time=None, cont_limit=20, continuous=False):
         """
         This function connects to Wikipedia and fetches edits done by a user
         on Wikipedia.
@@ -247,8 +247,8 @@ class WikiFetch:
 
         # Set start ID if provided. Else it remains None which means
         # contributions start at the very first revision of page
-        #if start_time is not None and start_time != "null":
-            #WIKI_PARAMS['user_contributions']["ucstart"] = start_time
+        if start_time is not None and start_time != "None":
+            WIKI_PARAMS['user_contributions']["ucstart"] = start_time
 
         # GET the user contributions from Wikipedia
         result = _get(url=WIKI_BASE_URL, values=WIKI_PARAMS['user_contributions'])
@@ -256,6 +256,31 @@ class WikiFetch:
         pprint(result)
         # Extract user contribution list from resulting json
         contributions = result["query"]["usercontribs"]
+        # Check for continuous
+        if continuous:
+            # Recursively fetch all available revisions till latest
+
+            # Set latest revision of retrieved revisions as start id of next
+            # revision fetch.
+            new_start_contr = contributions[-1]['timestamp']
+
+            # Check for revision being actual latest by measuring revision list length
+            if len(contributions) > 1:
+                # If more than one revisions available then we may not have
+                # reached the latest revision yet.
+
+                # Remove the last entry in revisions since it is now being
+                # retrieved again.
+                contributions.pop(-1)
+
+                # Add new revisions by recursively calling this function
+                contributions += self.get_user_contributions(username=username,
+                                                           start_time=new_start_contr,
+                                                           continuous=True)
+
+                # Else case not required here because revisions are completely
+                # updated at this point if only latest revision has been fetched.
+
         pprint(contributions)
 
         return contributions

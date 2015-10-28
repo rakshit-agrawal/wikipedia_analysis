@@ -279,7 +279,8 @@ def _get_user_contributions(user=None, last_timestamp=None, continuous=False):
     """
     w = WikiFetch()
     contributions = w.get_user_contributions(username=user,
-                                             start_time=last_timestamp)
+                                             start_time=last_timestamp,
+                                             continuous=continuous)
     print "Length of contributions at this level {}".format(len(contributions))
 
     return contributions
@@ -812,7 +813,10 @@ def get_user_contributions():
 
         print "No.of contributions {}".format(len(contributions))
 
-        return contributions
+        print "--------------------------------------"
+        pprint(contributions)
+        print "--------------------------------------"
+        return dict(contributions=contributions)
 
     return locals()
 
